@@ -28,9 +28,9 @@ player_row = df[df["名前"] == selected_player].iloc[0]
 labels = ['スピード', 'パス', 'フィジカル', 'スタミナ', 'ディフェンス', 'テクニック', 'メンタル', 'シュート', 'パワー']
 stats = [player_row[label] for label in labels]
 
-angles = [n / float(len(labels)) * 2 * 3.14159 for n in range(len(labels))]
 stats += stats[:1]
-angles += angles[:1]
+angles = [n / float(len(labels)) * 2 * 3.14159 for n in range(len(labels))]
+angles += angles[:1]  # 角度も閉じる
 
 fig, ax = plt.subplots(figsize=(6,6), subplot_kw=dict(polar=True))
 ax.plot(angles, stats, linewidth=2)
