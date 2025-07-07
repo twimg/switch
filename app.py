@@ -99,6 +99,7 @@ for idx, player in enumerate(st.session_state.scout_list):
     with st.expander(f"{player['名前']}（{player['ポジション']}／{player['国籍']}）"):
         st.write(player)
         if st.button(f"この選手を獲得", key=f"scout_{idx}"):
-            df = df.append(player, ignore_index=True)
+            # appendをpd.concatに修正
+            df = pd.concat([df, pd.DataFrame([player])], ignore_index=True)
             df.to_csv("players.csv", index=False)
             st.success(f"{player['名前']}をクラブに追加しました！")
