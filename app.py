@@ -4,23 +4,25 @@ import numpy as np
 import random
 import matplotlib.pyplot as plt
 
-# --- 定数 ---
 PLAYER_TEAM = "ストライバーFC"
-AI_CLUB_NAMES = [
-    "ブルーウルブズ", "ファルコンズ", "レッドスターズ", "ヴォルティス", "ユナイテッドFC",
-    "オーシャンズ", "タイガース", "スカイバード", "イーグルス", "キングス"
-]
+AI_CLUB_NAMES = ["ブルーウルブズ", "ファルコンズ", "レッドスターズ", "ヴォルティス", "ユナイテッドFC", "オーシャンズ", "タイガース", "スカイバード", "イーグルス", "キングス"]
 TEAM_NUM = 8
 random.seed(42)
 random.shuffle(AI_CLUB_NAMES)
 AI_TEAMS = AI_CLUB_NAMES[:TEAM_NUM-1]
 ALL_TEAMS = [PLAYER_TEAM] + AI_TEAMS
-AI_TYPES = ["攻撃型", "守備型", "バランス型"]
 labels = ['スピード','パス','フィジカル','スタミナ','ディフェンス','テクニック','メンタル','シュート','パワー']
 
 # --- 名前リスト ---
-name_pools = { ... }  # 省略、前回コード同様（略せず使う場合は元のままコピー）
-
+name_pools = {
+    "日本": ["佐藤 翔","木村 隼人","西村 陸","大谷 陽平","本田 悠真","松岡 悠人","飯田 啓太","吉田 海斗","白石 翼","黒田 隆成","長谷川 海斗","松本 凛","森本 優","斉藤 颯太","安藤 匠","高橋 拓真","山本 大輝","小林 蓮","田中 光","加藤 大和"],
+    "ブラジル": ["マテウス","パブロ","ルーカス","リカルド","アンドレ","ジョアン","エリック","ペドロ","マルコス","ジオバニ","ブルーノ","レアンドロ","ファビオ","ダニーロ","グスタボ","ガブリエル","レナン","ヴィトル","ラファエル","ジョルジ"],
+    "スペイン": ["サンチェス","ロペス","マルティン","ミゲル","フェルナンド","フアン","カルロス","ダビド","ルイス","ペレス","パブロ","ロドリゴ","アルバロ","セルヒオ","イバン","マリオ","マヌエル","ラウル","ヘスス","ゴンサロ"],
+    "フランス": ["ピエール","ジャン","トマ","アントワン","レオン","アンリ","ルカ","ダニエル","パスカル","マルク","ミカエル","ジュリアン","カミーユ","バスティアン","ロマン","アドリアン","ロイック","ガエル","ジョルダン","バンジャマン"],
+    "イタリア": ["ファビオ","マルコ","アレッサンドロ","ロッシ","サルヴァトーレ","ダニエレ","トーマス","ロレンツォ","ミケーレ","エミリオ","ルイジ","アントニオ","シモーネ","ジジ","パオロ","フランチェスコ","クラウディオ","ステファノ","クリスティアン","ニコラ"],
+    "ドイツ": ["クラウス","ティモ","ミヒャエル","ルーカス","マティアス","セバスティアン","ニコ","ラファエル","カミーロ","ダニエル","トビアス","フローリアン","クリストフ","ユリアン","モリッツ","フィリップ","アレクサンダー","シモン","フランク","オリバー"],
+    "イングランド": ["トーマス","ジェームズ","ウィリアム","ハリー","ジョージ","ジャック","チャールズ","ダニエル","オリバー","ルーカス","ヘンリー","エドワード","ベンジャミン","ジョシュア","サミュエル","メイソン","ジョセフ","マシュー","リアム","アーチー"]
+}
 def get_unique_name_by_nationality(nationality, used_names):
     pool = name_pools.get(nationality, [])
     for name in pool:
@@ -29,83 +31,70 @@ def get_unique_name_by_nationality(nationality, used_names):
     return f"{nationality}ネーム{len(used_names)%1000}"
 
 # --- セッション初期化 ---
-def session_init():
-    if "current_round" not in st.session_state:
-        st.session_state.current_round = 1
-    if "league_table" not in st.session_state:
-        st.session_state.league_table = {t: {"勝ち点":0,"勝":0,"分":0,"敗":0,"得点":0,"失点":0} for t in ALL_TEAMS}
-    if "season_history" not in st.session_state:
-        st.session_state.season_history = []
-    if "scout_list" not in st.session_state:
-        st.session_state.scout_list = []
-    if "scout_button_disabled" not in st.session_state:
-        st.session_state.scout_button_disabled = [False]*5
-    if "match_log" not in st.session_state:
-        st.session_state.match_log = []
-    if "money" not in st.session_state:
-        st.session_state.money = 30000  # 資金(万円)
-    if "injured_list" not in st.session_state:
-        st.session_state.injured_list = []
-    if "yellow_card" not in st.session_state:
-        st.session_state.yellow_card = {}
-    if "youth_graduates" not in st.session_state:
-        st.session_state.youth_graduates = []
-    if "ai_players" not in st.session_state:
-        ai_players = []
-        used_names = set()
-        for t in AI_TEAMS:
-            ai_type = random.choice(AI_TYPES)
-            for i in range(20):
-                nationality = random.choice(list(name_pools.keys()))
-                name = get_unique_name_by_nationality(nationality, used_names)
-                used_names.add(name)
-                ai_players.append({
-                    "名前": name,
-                    "ポジション": random.choice(["GK","DF","MF","FW"]),
-                    "年齢": random.randint(19,32),
-                    "国籍": nationality,
-                    "スピード": random.randint(55,85),
-                    "パス": random.randint(55,85),
-                    "フィジカル": random.randint(55,85),
-                    "スタミナ": random.randint(55,85),
-                    "ディフェンス": random.randint(55,85),
-                    "テクニック": random.randint(55,85),
-                    "メンタル": random.randint(55,85),
-                    "シュート": random.randint(55,85),
-                    "パワー": random.randint(55,85),
-                    "所属クラブ": t,
-                    "AIタイプ": ai_type,
-                    "出場数": 0,
-                    "得点": 0
-                })
-        st.session_state.ai_players = pd.DataFrame(ai_players)
-session_init()
+if "current_round" not in st.session_state:
+    st.session_state.current_round = 1
+if "league_table" not in st.session_state:
+    st.session_state.league_table = {t: {"勝ち点":0,"勝":0,"分":0,"敗":0,"得点":0,"失点":0} for t in ALL_TEAMS}
+if "season_history" not in st.session_state:
+    st.session_state.season_history = []
+if "scout_list" not in st.session_state:
+    st.session_state.scout_list = []
+if "scout_button_disabled" not in st.session_state:
+    st.session_state.scout_button_disabled = [False]*5
+if "match_log" not in st.session_state:
+    st.session_state.match_log = []
+if "money" not in st.session_state:
+    st.session_state.money = 30000
+if "ai_players" not in st.session_state:
+    ai_players = []
+    used_names = set()
+    AI_TYPES = ["攻撃型", "守備型", "バランス型"]
+    for t in AI_TEAMS:
+        ai_type = random.choice(AI_TYPES)
+        for i in range(20):
+            nationality = random.choice(list(name_pools.keys()))
+            name = get_unique_name_by_nationality(nationality, used_names)
+            used_names.add(name)
+            ai_players.append({
+                "名前": name,
+                "ポジション": random.choice(["GK","DF","MF","FW"]),
+                "年齢": random.randint(19,32),
+                "国籍": nationality,
+                "スピード": random.randint(55,85),
+                "パス": random.randint(55,85),
+                "フィジカル": random.randint(55,85),
+                "スタミナ": random.randint(55,85),
+                "ディフェンス": random.randint(55,85),
+                "テクニック": random.randint(55,85),
+                "メンタル": random.randint(55,85),
+                "シュート": random.randint(55,85),
+                "パワー": random.randint(55,85),
+                "所属クラブ": t,
+                "AIタイプ": ai_type,
+                "出場数": 0,
+                "得点": 0
+            })
+    st.session_state.ai_players = pd.DataFrame(ai_players)
 
-# --- データ読込 ---
+# --- プレイヤーチーム読込 ---
 df = pd.read_csv("players.csv")
 df["所属クラブ"] = PLAYER_TEAM
 if "出場数" not in df.columns: df["出場数"] = 0
 if "得点" not in df.columns: df["得点"] = 0
-if not st.session_state.yellow_card: st.session_state.yellow_card = {n: 0 for n in df["名前"]}
 
-# --- ユース/トップ分割 ---
-youth_df = df[df["年齢"] < 19]
-senior_df = df[df["年齢"] >= 19]
-
-# --- 画面タブ構成 ---
+# --- タブ構成 ---
 tab1, tab2, tab3 = st.tabs(["自クラブ選手", "AIクラブ情報", "スカウト/補強"])
 
-# === 1. 自クラブ（シニア・ユース切替） ===
+# --- 1.自クラブ選手（ユース/トップ切替＆詳細・レーダー）---
 with tab1:
     player_subtab = st.radio("表示切替", ["シニアメンバー", "ユースメンバー"], horizontal=True)
+    youth_df = df[df["年齢"] < 19]
+    senior_df = df[df["年齢"] >= 19]
     display_df = senior_df if player_subtab == "シニアメンバー" else youth_df
-    st.markdown(f"#### {player_subtab}")
-    st.dataframe(display_df[["名前","ポジション","年齢","国籍","出場数","得点"]].reset_index(drop=True), use_container_width=True)
-    st.markdown("クリックで詳細")
+    st.dataframe(display_df[["名前","ポジション","年齢","国籍","出場数","得点"]], use_container_width=True)
     selected_player = st.selectbox("選手名", display_df["名前"])
     player_row = display_df[display_df["名前"]==selected_player].iloc[0]
     st.write(player_row)
-    # レーダーチャート
     stats = [float(player_row[l]) for l in labels]
     stats += stats[:1]
     angles = np.linspace(0, 2 * np.pi, len(labels) + 1)
@@ -115,17 +104,12 @@ with tab1:
     ax.set_xticks(angles[:-1])
     ax.set_xticklabels(labels)
     st.pyplot(fig)
-    # カード、ケガ情報
-    st.info(f"イエロー：{st.session_state.yellow_card.get(selected_player,0)}")
-    if selected_player in st.session_state.injured_list:
-        st.warning("ケガで欠場中")
 
-# === 2. AIクラブ情報 ===
+# --- 2.AIクラブ情報 ---
 with tab2:
     ai_club = st.selectbox("AIクラブを選択", AI_TEAMS)
     club_players = st.session_state.ai_players[st.session_state.ai_players["所属クラブ"]==ai_club]
-    st.markdown(f"#### {ai_club} 所属メンバー")
-    st.dataframe(club_players[["名前","ポジション","年齢","国籍","出場数","得点"]].reset_index(drop=True), use_container_width=True)
+    st.dataframe(club_players[["名前","ポジション","年齢","国籍","出場数","得点"]], use_container_width=True)
     ai_selected = st.selectbox("AI選手名", club_players["名前"])
     ai_row = club_players[club_players["名前"]==ai_selected].iloc[0]
     st.write(ai_row)
@@ -139,9 +123,8 @@ with tab2:
     ax.set_xticklabels(labels)
     st.pyplot(fig)
 
-# === 3. スカウト/補強（資金を上部表示） ===
+# --- 3.スカウト/補強（資金表示・かぶり無し・1度だけ） ---
 with tab3:
-    st.markdown(f"#### スカウト／補強")
     st.info(f"クラブ資金：{st.session_state.money}万円")
     if st.button("スカウトリストを更新"):
         existing_names = set(df["名前"].tolist())
@@ -185,110 +168,7 @@ with tab3:
                     st.session_state.scout_button_disabled[idx] = True
                     st.success(f"{player['名前']}をクラブに追加しました！（-2000万円）")
 
-# --- 以下は順位表・試合シミュ・シーズン管理などこれまでのロジック（省略可能） ---
-
-import streamlit as st
-import pandas as pd
-import numpy as np
-import random
-import matplotlib.pyplot as plt
-
-# ====== クラブ名＆AIクラブ名自動生成 ======
-PLAYER_TEAM = "ストライバーFC"
-AI_CLUB_NAMES = [
-    "ブルーウルブズ", "ファルコンズ", "レッドスターズ", "ヴォルティス", "ユナイテッドFC",
-    "オーシャンズ", "タイガース", "スカイバード", "イーグルス", "キングス"
-]
-TEAM_NUM = 8
-random.seed(42)
-random.shuffle(AI_CLUB_NAMES)
-AI_TEAMS = AI_CLUB_NAMES[:TEAM_NUM-1]
-ALL_TEAMS = [PLAYER_TEAM] + AI_TEAMS
-
-# ====== 名前リスト（枯渇時は自動生成） ======
-name_pools = {
-    "日本": ["佐藤 翔","木村 隼人","西村 陸","大谷 陽平","本田 悠真","松岡 悠人","飯田 啓太","吉田 海斗","白石 翼","黒田 隆成","長谷川 海斗","松本 凛","森本 優","斉藤 颯太","安藤 匠","高橋 拓真","山本 大輝","小林 蓮","田中 光","加藤 大和"],
-    "ブラジル": ["マテウス","パブロ","ルーカス","リカルド","アンドレ","ジョアン","エリック","ペドロ","マルコス","ジオバニ","ブルーノ","レアンドロ","ファビオ","ダニーロ","グスタボ","ガブリエル","レナン","ヴィトル","ラファエル","ジョルジ"],
-    "スペイン": ["サンチェス","ロペス","マルティン","ミゲル","フェルナンド","フアン","カルロス","ダビド","ルイス","ペレス","パブロ","ロドリゴ","アルバロ","セルヒオ","イバン","マリオ","マヌエル","ラウル","ヘスス","ゴンサロ"],
-    "フランス": ["ピエール","ジャン","トマ","アントワン","レオン","アンリ","ルカ","ダニエル","パスカル","マルク","ミカエル","ジュリアン","カミーユ","バスティアン","ロマン","アドリアン","ロイック","ガエル","ジョルダン","バンジャマン"],
-    "イタリア": ["ファビオ","マルコ","アレッサンドロ","ロッシ","サルヴァトーレ","ダニエレ","トーマス","ロレンツォ","ミケーレ","エミリオ","ルイジ","アントニオ","シモーネ","ジジ","パオロ","フランチェスコ","クラウディオ","ステファノ","クリスティアン","ニコラ"],
-    "ドイツ": ["クラウス","ティモ","ミヒャエル","ルーカス","マティアス","セバスティアン","ニコ","ラファエル","カミーロ","ダニエル","トビアス","フローリアン","クリストフ","ユリアン","モリッツ","フィリップ","アレクサンダー","シモン","フランク","オリバー"],
-    "イングランド": ["トーマス","ジェームズ","ウィリアム","ハリー","ジョージ","ジャック","チャールズ","ダニエル","オリバー","ルーカス","ヘンリー","エドワード","ベンジャミン","ジョシュア","サミュエル","メイソン","ジョセフ","マシュー","リアム","アーチー"]
-}
-def get_unique_name_by_nationality(nationality, used_names):
-    pool = name_pools.get(nationality, [])
-    for name in pool:
-        if name not in used_names:
-            return name
-    # 枯渇時は「カタカナ名＋数字」
-    return f"{nationality}ネーム{len(used_names)%1000}"
-
-# ====== セッション初期化 ======
-labels = ['スピード','パス','フィジカル','スタミナ','ディフェンス','テクニック','メンタル','シュート','パワー']
-
-if "current_round" not in st.session_state:
-    st.session_state.current_round = 1
-if "league_table" not in st.session_state:
-    st.session_state.league_table = {t: {"勝ち点":0,"勝":0,"分":0,"敗":0,"得点":0,"失点":0} for t in ALL_TEAMS}
-if "season_history" not in st.session_state:
-    st.session_state.season_history = []
-if "scout_list" not in st.session_state:
-    st.session_state.scout_list = []
-if "scout_button_disabled" not in st.session_state:
-    st.session_state.scout_button_disabled = [False]*5
-if "match_log" not in st.session_state:
-    st.session_state.match_log = []
-if "ai_players" not in st.session_state:
-    ai_players = []
-    used_names = set()
-    AI_TYPES = ["攻撃型", "守備型", "バランス型"]
-    for t in AI_TEAMS:
-        ai_type = random.choice(AI_TYPES)
-        for i in range(20):
-            nationality = random.choice(list(name_pools.keys()))
-            name = get_unique_name_by_nationality(nationality, used_names)
-            used_names.add(name)
-            ai_players.append({
-                "名前": name,
-                "ポジション": random.choice(["GK","DF","MF","FW"]),
-                "年齢": random.randint(19,32),
-                "国籍": nationality,
-                "スピード": random.randint(55,85),
-                "パス": random.randint(55,85),
-                "フィジカル": random.randint(55,85),
-                "スタミナ": random.randint(55,85),
-                "ディフェンス": random.randint(55,85),
-                "テクニック": random.randint(55,85),
-                "メンタル": random.randint(55,85),
-                "シュート": random.randint(55,85),
-                "パワー": random.randint(55,85),
-                "所属クラブ": t,
-                "AIタイプ": ai_type,
-                "出場数": 0,
-                "得点": 0
-            })
-    st.session_state.ai_players = pd.DataFrame(ai_players)
-
-# ====== プレイヤーチーム読込 ======
-df = pd.read_csv("players.csv")
-df["所属クラブ"] = PLAYER_TEAM
-if "出場数" not in df.columns:
-    df["出場数"] = 0
-if "得点" not in df.columns:
-    df["得点"] = 0
-
-# ====== 表彰関数 ======
-def show_season_awards(df, league_table):
-    # 優勝
-    tab = pd.DataFrame(league_table).T
-    tab["得失点"] = tab["得点"] - tab["失点"]
-    champion = tab.sort_values(["勝ち点","得失点","得点"], ascending=False).index[0]
-    # 得点王
-    top_scorer_row = df.sort_values("得点", ascending=False).iloc[0]
-    st.success(f"🏆 優勝: {champion}")
-    st.info(f"⚽ 得点王: {top_scorer_row['名前']}（{int(top_scorer_row['得点'])}点）")
-
-# ====== 順位表表示 ======
+# --- 順位表 ---
 def show_league_table():
     table = []
     for t in ALL_TEAMS:
@@ -298,49 +178,18 @@ def show_league_table():
     df_league = pd.DataFrame(table, columns=["クラブ","勝ち点","勝","分","敗","得点","失点","得失点"])
     df_league = df_league.sort_values(["勝ち点","得失点","得点"], ascending=False).reset_index(drop=True)
     st.dataframe(df_league)
-
-# ====== 順位表・年度履歴 ======
-st.title("サッカー運営シミュレーション 完全統合版")
 st.subheader("順位表（勝ち点制）")
 show_league_table()
-if st.button("シーズン終了／表彰"):
-    show_season_awards(df, st.session_state.league_table)
-    st.session_state.season_history.append(pd.DataFrame(st.session_state.league_table).T)
 
-if st.session_state.season_history:
-    st.markdown("#### 過去成績（年度推移）")
-    for year, hist in enumerate(st.session_state.season_history, 1):
-        st.write(f"{year}年")
-        st.dataframe(hist)
-
-st.header(f"現在 {st.session_state.current_round} 節")
-
-# ====== スタメン選択 ======
+# --- スタメン選択 ---
 st.subheader("スタメン11人選択")
 selected_starters = st.multiselect("スタメンにしたい選手（11人まで）", df["名前"].tolist(), default=df["名前"].tolist()[:11])
 if len(selected_starters) > 11:
     st.error("スタメンは11人までです！")
 starters_df = df[df["名前"].isin(selected_starters)].copy()
 
-# ====== 選手一覧＆詳細表示 ======
-st.subheader("選手一覧（名前クリックで詳細）")
-for i, row in df.iterrows():
-    if st.button(row["名前"], key=f"detail_{i}"):
-        with st.expander(f"{row['名前']}の詳細", expanded=True):
-            st.write(row)
-            # レーダーチャート
-            stats = [float(row[l]) for l in labels]
-            stats += stats[:1]
-            angles = np.linspace(0, 2 * np.pi, len(labels) + 1)
-            fig, ax = plt.subplots(figsize=(4,4), subplot_kw=dict(polar=True))
-            ax.plot(angles, stats, linewidth=2)
-            ax.fill(angles, stats, alpha=0.3)
-            ax.set_xticks(angles[:-1])
-            ax.set_xticklabels(labels)
-            st.pyplot(fig)
-
-# ====== 試合シミュレーション（順位表も更新） ======
-st.subheader("試合")
+# --- 試合シミュレーション ---
+st.header(f"現在 {st.session_state.current_round} 節")
 tactics = st.selectbox("チーム戦術", ["攻撃的", "バランス", "守備的"])
 if st.button("試合開始！"):
     next_ai = AI_TEAMS[(st.session_state.current_round-1)%len(AI_TEAMS)]
@@ -369,12 +218,10 @@ if st.button("試合開始！"):
     df.to_csv("players.csv", index=False)
     # 勝ち点等を順位表に反映
     tab = st.session_state.league_table
-    # 得点/失点
     tab[PLAYER_TEAM]["得点"] += my_goals
     tab[PLAYER_TEAM]["失点"] += op_goals
     tab[next_ai]["得点"] += op_goals
     tab[next_ai]["失点"] += my_goals
-    # 勝敗
     if my_goals > op_goals:
         tab[PLAYER_TEAM]["勝ち点"] += 3
         tab[PLAYER_TEAM]["勝"] += 1
@@ -388,69 +235,31 @@ if st.button("試合開始！"):
         tab[next_ai]["勝ち点"] += 1
         tab[PLAYER_TEAM]["分"] += 1
         tab[next_ai]["分"] += 1
-    # ログ
     logtext = f"{st.session_state.current_round}節 {PLAYER_TEAM} vs {next_ai}: {my_goals}-{op_goals} 得点者:{','.join(my_scorers) if my_scorers else 'なし'}"
     st.session_state.match_log.append(logtext)
     st.success(logtext)
     st.session_state.current_round += 1
 
-# ====== 試合ログ ======
+# --- 試合ログ ---
 if st.session_state.match_log:
     st.markdown("#### 試合ログ")
     for l in st.session_state.match_log[-10:]:
         st.text(l)
 
-# ====== スカウト画面（かぶり無し、連打防止、バグ修正済み） ======
-st.subheader("スカウト候補")
-if st.button("スカウトリストを更新"):
-    existing_names = set(df["名前"].tolist())
-    existing_names.update(st.session_state.ai_players["名前"].tolist())
-    st.session_state.scout_list = []
-    st.session_state.scout_button_disabled = []
-    for _ in range(5):
-        nationality = random.choice(list(name_pools.keys()))
-        name = get_unique_name_by_nationality(nationality, existing_names)
-        existing_names.add(name)
-        player = {
-            "名前": name,
-            "ポジション": random.choice(["GK", "DF", "MF", "FW"]),
-            "年齢": random.randint(18, 22),
-            "国籍": nationality,
-            "スピード": random.randint(55, 80),
-            "パス": random.randint(55, 80),
-            "フィジカル": random.randint(55, 80),
-            "スタミナ": random.randint(55, 80),
-            "ディフェンス": random.randint(55, 80),
-            "テクニック": random.randint(55, 80),
-            "メンタル": random.randint(55, 80),
-            "シュート": random.randint(55, 80),
-            "パワー": random.randint(55, 80),
-            "所属クラブ": PLAYER_TEAM,
-            "出場数": 0,
-            "得点": 0
-        }
-        st.session_state.scout_list.append(player)
-        st.session_state.scout_button_disabled.append(False)
-
-for idx, player in enumerate(st.session_state.scout_list):
-    with st.expander(f"{player['名前']}（{player['ポジション']}／{player['国籍']}）"):
-        st.write(player)
-        if st.session_state.scout_button_disabled[idx]:
-            st.button(f"この選手を獲得", key=f"scout_{idx}", disabled=True)
-        else:
-            if st.button(f"この選手を獲得", key=f"scout_{idx}"):
-                df = pd.concat([df, pd.DataFrame([player])], ignore_index=True)
-                df.to_csv("players.csv", index=False)
-                st.session_state.scout_button_disabled[idx] = True
-                st.success(f"{player['名前']}をクラブに追加しました！")
-
-# ====== AI移籍マーケット（リストアップ/売却も可） ======
-st.subheader("移籍マーケット")
-if st.button("AIクラブ間の選手リストアップ"):
-    available = st.session_state.ai_players.sample(3)
-    for idx, row in available.iterrows():
-        st.info(f"{row['所属クラブ']}の{row['名前']}（{row['ポジション']}、{row['国籍']}）が移籍リストに！ 移籍金: {random.randint(2000, 6000)}万円")
-        if st.button(f"{row['名前']}を獲得する", key=f"ai_tr_{idx}"):
-            df = pd.concat([df, pd.DataFrame([row])], ignore_index=True)
-            df.to_csv("players.csv", index=False)
-            st.success(f"{row['名前']}をクラブに移籍獲得しました！")
+# --- シーズン終了・表彰 ---
+def show_season_awards(df, league_table):
+    tab = pd.DataFrame(league_table).T
+    tab["得失点"] = tab["得点"] - tab["失点"]
+    champion = tab.sort_values(["勝ち点","得失点","得点"], ascending=False).index[0]
+    top_scorer_row = df.sort_values("得点", ascending=False).iloc[0]
+    st.success(f"🏆 優勝: {champion}")
+    st.info(f"⚽ 得点王: {top_scorer_row['名前']}（{int(top_scorer_row['得点'])}点）")
+if st.button("シーズン終了／表彰"):
+    show_season_awards(df, st.session_state.league_table)
+    st.session_state.season_history.append(pd.DataFrame(st.session_state.league_table).T)
+if st.session_state.season_history:
+    st.markdown("#### 過去成績（年度推移）")
+    for year, hist in enumerate(st.session_state.season_history, 1):
+        st.write(f"{year}年")
+        st.dataframe(hist)
+    
