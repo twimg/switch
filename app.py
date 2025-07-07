@@ -1,36 +1,33 @@
 import streamlit as st
 import pandas as pd
 import matplotlib.pyplot as plt
-import random
+import numpy as np
 
-st.set_page_config(page_title="サッカー運営ゲーム", layout="wide")
+st.title("テストレーダーチャート")
 
-# データ読み込み
-df = pd.read_csv("players.csv")
+# 仮データ例（本番はdf = pd.read_csv("players.csv")でOK）
+data = {
+    '名前': ['木村 隼人'],
+    'スピード': [70],
+    'パス': [65],
+    'フィジカル': [75],
+    'スタミナ': [68],
+    'ディフェンス': [67],
+    'テクニック': [73],
+    'メンタル': [64],
+    'シュート': [60],
+    'パワー': [72]
+}
+df = pd.DataFrame(data)
 
-st.title("クラブ運営シミュレーション v6")
-
-# セレクション
-position = st.selectbox("ポジションを選択", ["全て"] + sorted(df["ポジション"].unique().tolist()))
-if position != "全て":
-    filtered_df = df[df["ポジション"] == position]
-else:
-    filtered_df = df
-
-# 表示
-st.dataframe(filtered_df.reset_index(drop=True))
-
-# 選手能力レーダーチャート
-st.subheader("選手能力チャート")
+labels = ['スピード', 'パス', 'フィジカル', 'スタミナ', 'ディフェンス', 'テクニック', 'メンタル', 'シュート', 'パワー']
 selected_player = st.selectbox("選手を選択", df["名前"])
 player_row = df[df["名前"] == selected_player].iloc[0]
 
-labels = ['スピード', 'パス', 'フィジカル', 'スタミナ', 'ディフェンス', 'テクニック', 'メンタル', 'シュート', 'パワー']
-stats = [player_row[label] for label in labels]
+stats = [float(player_row[label]) for label in labels]
+stats += stats[:1]  # 先頭値を最後に追加
 
-stats += stats[:1]
-angles = [n / float(len(labels)) * 2 * 3.14159 for n in range(len(labels))]
-angles += angles[:1]  # 角度も閉じる
+angles = np.linspace(0, 2 * np.pi, len(labels) + 1)
 
 fig, ax = plt.subplots(figsize=(6,6), subplot_kw=dict(polar=True))
 ax.plot(angles, stats, linewidth=2)
