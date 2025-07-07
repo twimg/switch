@@ -28,6 +28,13 @@ def get_unique_name_by_nationality(nationality, used_names):
     for name in pool:
         if name not in used_names:
             return name
+    # 枯渇時は苗字＋・＋名前のランダム生成
+    fams = family_names_dict.get(nationality, ["名無し"])
+    firsts = first_names_dict.get(nationality, ["太郎"])
+    while True:
+        name = f"{random.choice(fams)}・{random.choice(firsts)}"
+        if name not in used_names:
+            return name
     return f"{nationality}ネーム{len(used_names)%1000}"
 
 # --- セッション初期化 ---
