@@ -70,7 +70,7 @@ TEAM_NUM = 8
 random.seed(42)
 AI_TEAMS = AI_CLUB_NAMES[:TEAM_NUM-1]
 ALL_TEAMS = [PLAYER_TEAM] + AI_TEAMS
-labels = ['スピード','パス','フィジカル','スタミナ','ディフェンス','テクニック','メンタル','シュート','パワー']
+labels = ['Speed','Pass','Physical','Stamina','Defense','Technique','Mental','Shoot','Power']
 currency_unit = "€"
 
 def format_money(euro):
