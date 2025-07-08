@@ -1,3 +1,5 @@
+import matplotlib
+matplotlib.rc('font', family='IPAexGothic')
 import streamlit as st
 import pandas as pd
 import numpy as np
