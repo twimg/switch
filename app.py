@@ -242,7 +242,7 @@ if main_tab == "Youth":
                 st.session_state.selected_player = row
             st.markdown(f"<div class='player-card'>{row['名前']}<br>{row['ポジション']} / {row['年齢']} / {row['国籍']}<br>OVR:{row['Overall']}｜Wage:{format_money(row['年俸'])}</div>",
 
-もちろんです！  
+print("もちろんです!")
 **選手の総合値（平均）を表やカードで表示、詳細表示、背景色修正、すべて統合版**です。  
 **app.pyにまるごとコピペでOKです。**
 
