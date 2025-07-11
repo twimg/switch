@@ -13,79 +13,79 @@ PLAYER_ICON_URL = "https://cdn-icons-png.flaticon.com/512/847/847969.png"
 st.markdown("""
     <style>
     html, body, .stApp { font-family: 'IPAexGothic','Meiryo',sans-serif; }
-    .stApp { background: linear-gradient(120deg, #182a45 0%, #27345b 100%) !important; color: #eaf6ff; }
+    .stApp { background: linear-gradient(120deg, #192841 0%, #24345b 100%) !important; color: #eaf6ff; }
     .stRadio [role='radiogroup'] label {
-        background: linear-gradient(90deg,#fff03d 40%,#2bc5ff 100%);
-        color: #15203a !important;
+        background: linear-gradient(90deg,#eee969 30%,#3f98e3 100%);
+        color: #173060 !important;
         font-weight: bold !important;
         border-radius: 17px !important;
-        margin: 4px 10px 4px 0;
-        padding: 7px 14px !important;
+        margin: 5px 9px 5px 0;
+        padding: 7px 16px !important;
         font-size: 1.08em !important;
-        box-shadow: 0 0 8px #22e2ff55;
-        border: 2px solid #15203a22;
+        box-shadow: 0 0 8px #23aaff22;
+        border: 2px solid #23345a33;
         display: inline-block;
-        transition: 0.16s;
+        transition: 0.18s;
     }
     .stRadio [role='radiogroup'] label[data-selected="true"] {
-        background: linear-gradient(90deg,#2bc5ff 30%,#fff03d 100%);
-        color: #1a223b !important;
-        border: 2.5px solid #fff03d !important;
-        box-shadow: 0 0 12px #fff03d88;
-        font-size: 1.12em !important;
+        background: linear-gradient(90deg,#3f98e3 35%,#f7ec95 100%);
+        color: #1c233d !important;
+        border: 2.2px solid #fff16c !important;
+        box-shadow: 0 0 12px #fff16c33;
+        font-size: 1.13em !important;
     }
     .player-card {
         background: #fff;
         color: #133469;
         border-radius: 15px;
-        padding: 12px 9px 7px 9px;
-        margin: 9px 1.5vw 12px 1.5vw;
-        box-shadow: 0 0 14px #27e2ff44;
+        padding: 12px 10px 8px 10px;
+        margin: 10px 2vw 15px 2vw;
+        box-shadow: 0 0 13px #20b6ff33;
         display: flex;
         flex-direction: column;
         align-items: center;
-        min-width: 140px; max-width: 168px;
+        min-width: 140px; max-width: 170px;
         font-size:0.99em;
         transition: 0.15s;
-        border: 2px solid #25b5ff25;
+        border: 2px solid #25b5ff20;
         position: relative;
     }
-    .player-card img {border-radius:50%;margin-bottom:10px;border:2px solid #2d7cf7;background:#fff;}
-    .player-card.selected {border: 2.7px solid #fff03d; box-shadow: 0 0 16px #fff03d66;}
+    .player-card img {border-radius:50%;margin-bottom:10px;border:2px solid #3398d7;background:#fff;}
+    .player-card.selected {border: 2.7px solid #f5e353; box-shadow: 0 0 16px #f5e35399;}
     .player-card:hover {
-        background: #f5fbff;
+        background: #f8fcff;
         color: #1b54a4;
-        transform: scale(1.02);
-        box-shadow: 0 0 13px #2fefff77;
-        border:2px solid #29d4ff;
+        transform: scale(1.03);
+        box-shadow: 0 0 13px #1cefff55;
+        border:2px solid #42d8ff;
     }
     .player-card .detail-popup {
         position: absolute;
-        top: 7px;
-        left: 102%;
+        top: 6px;
+        left: 101%;
         z-index:10;
         min-width: 180px; max-width:270px;
         background: #202c49;
         color: #ffe;
         border-radius: 11px;
-        padding: 12px 10px;
-        box-shadow: 0 0 16px #131f31cc;
+        padding: 13px 12px;
+        box-shadow: 0 0 14px #131f31b2;
         font-size: 1.02em;
-        border: 2px solid #1d7fec88;
+        border: 2px solid #1698d488;
     }
     .clickable-name {color: #2bc5ff; font-weight:700; text-decoration: underline; cursor:pointer;}
-    .clickable-name:hover {color: #fff03d; background: #1c1f29;}
+    .clickable-name:hover {color: #ffe45a; background: #1c1f29;}
     .mobile-table {overflow-x:auto; white-space:nowrap;}
     .mobile-table th, .mobile-table td {
         padding: 4px 9px;
         font-size: 14px;
-        border-bottom: 1.5px solid #1c2437;
+        border-bottom: 1.3px solid #1c2437;
     }
     .stDataFrame {border-radius:12px !important;}
     .table-highlight th, .table-highlight td {
-        background: #1c263c !important;
-        color: #fff03d !important;
-        border-bottom: 1.5px solid #26345b !important;
+        background: #182649 !important;
+        color: #ffe45a !important;
+        border-bottom: 1.4px solid #24335d !important;
     }
     </style>
 """, unsafe_allow_html=True)
@@ -205,10 +205,9 @@ df_senior = df[df["年齢"] >= 19].reset_index(drop=True)
 df_youth = df[df["年齢"] < 19].reset_index(drop=True)
 if "selected_player" not in st.session_state: st.session_state.selected_player = None
 
-# --- ラジオタブUI ---
 main_tab = st.radio("メニュー", ("Senior", "Youth", "Match", "Scout", "Standings", "Save", "SNS"), horizontal=True)
 
-# 1. Senior
+# --- Senior ---
 if main_tab == "Senior":
     st.subheader("Senior Squad")
     main_cols = ["名前","ポジション","年齢","国籍","契約年数","年俸","総合"]
@@ -249,11 +248,10 @@ if main_tab == "Senior":
                 ax.plot(angles, stats, color="#1c53d6", linewidth=2)
                 ax.fill(angles, stats, color="#87d4ff", alpha=0.21)
                 ax.set_xticks(angles[:-1])
-                ax.set_xticklabels(labels, fontsize=9, color='#fff03d')
+                ax.set_xticklabels(labels, fontsize=9, color='#ffe45a')
                 ax.set_yticklabels([])
                 fig.patch.set_alpha(0.0)
                 st.pyplot(fig, transparent=True)
-                # 能力詳細＋色分け
                 ab_table = "<table>"
                 for l in labels:
                     v = int(row[l])
@@ -267,7 +265,7 @@ if main_tab == "Senior":
                     unsafe_allow_html=True)
                 st.markdown("</div>", unsafe_allow_html=True)
 
-# 2. Youth
+# --- Youth ---
 if main_tab == "Youth":
     st.subheader("Youth Players")
     if len(df_youth) == 0:
@@ -310,7 +308,7 @@ if main_tab == "Youth":
                     ax.plot(angles, stats, color="#1c53d6", linewidth=2)
                     ax.fill(angles, stats, color="#87d4ff", alpha=0.21)
                     ax.set_xticks(angles[:-1])
-                    ax.set_xticklabels(labels, fontsize=9, color='#fff03d')
+                    ax.set_xticklabels(labels, fontsize=9, color='#ffe45a')
                     ax.set_yticklabels([])
                     fig.patch.set_alpha(0.0)
                     st.pyplot(fig, transparent=True)
@@ -327,7 +325,7 @@ if main_tab == "Youth":
                         unsafe_allow_html=True)
                     st.markdown("</div>", unsafe_allow_html=True)
 
-# 3. Match
+# --- Match ---
 if main_tab == "Match":
     st.subheader("Match Simulation")
     round_idx = (st.session_state.current_round-1)%len(AI_TEAMS)
@@ -380,7 +378,7 @@ if main_tab == "Match":
     for l in st.session_state.match_log[-5:][::-1]:
         st.write(l)
 
-# 4. Scout（同一選手スカウト防止・新規のみ追加）
+# --- Scout ---
 if main_tab == "Scout":
     st.subheader("Scout Candidates")
     st.info(f"Budget: {format_money(st.session_state.budget)}")
@@ -431,7 +429,7 @@ if main_tab == "Scout":
             else:
                 st.markdown("🟦<span style='color:#888'>既に在籍</span>", unsafe_allow_html=True)
 
-# 5. Standings（色・配色統一）
+# --- Standings ---
 if main_tab == "Standings":
     st.subheader("League Standings")
     tbl = []
@@ -461,7 +459,7 @@ if main_tab == "Standings":
         for l in st.session_state.match_log[-5:][::-1]:
             st.text(l)
 
-# 6. Save
+# --- Save ---
 if main_tab == "Save":
     st.subheader("Data Save")
     if st.button("Save (players.csv)"):
@@ -471,7 +469,7 @@ if main_tab == "Save":
         st.session_state.ai_players.to_csv("ai_players.csv", index=False)
         st.success("AI Players list saved.")
 
-# 7. SNS・イベントニュース（お好みで拡張可）
+# --- SNS ---
 if main_tab == "SNS":
     st.subheader("SNS / Event Feed")
     if st.session_state["移籍履歴"]:
