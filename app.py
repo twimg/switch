@@ -160,6 +160,10 @@ def assign_hidden_type_and_growth(df):
     df["_成長限界"] = growth
     return df
 
+# avataaarsスタイルの自動イラストURL生成
+def get_avatar_url(name):
+    return f"https://avatars.dicebear.com/api/avataaars/{name.replace(' ', '')}.svg"
+
 if "current_round" not in st.session_state: st.session_state.current_round = 1
 if "scout_list" not in st.session_state: st.session_state.scout_list = []
 if "budget" not in st.session_state: st.session_state.budget = 1_000_000
@@ -229,9 +233,10 @@ if main_tab == "Senior":
         with cols[idx%len(cols)]:
             selected = detail_idx == idx
             card_class = "player-card selected" if selected else "player-card"
+            avatar_url = get_avatar_url(row["名前"])
             st.markdown(
                 f"""<div class='{card_class}'>
-                <img src="{PLAYER_ICON_URL}" width="48">
+                <img src="{avatar_url}" width="64">
                 <b>{row['名前']}</b>
                 <br><span style='color:#27b0e7;font-weight:bold'>OVR:{row['総合']}</span>
                 <br>{row['ポジション']} / {row['年齢']} / {row['国籍']}
@@ -268,7 +273,7 @@ if main_tab == "Senior":
 # --- Youth ---
 if main_tab == "Youth":
     st.subheader("Youth Players")
-    main_cols = ["名前","ポジション","年齢","国籍","契約年数","年俸","総合"]  # ← 追加しました
+    main_cols = ["名前","ポジション","年齢","国籍","契約年数","年俸","総合"]
     if len(df_youth) == 0:
         st.info("ユース選手はいません")
     else:
@@ -290,9 +295,10 @@ if main_tab == "Youth":
             with cols[idx%len(cols)]:
                 selected = detail_idx == idx
                 card_class = "player-card selected" if selected else "player-card"
+                avatar_url = get_avatar_url(row["名前"])
                 st.markdown(
                     f"""<div class='{card_class}'>
-                    <img src="{PLAYER_ICON_URL}" width="48">
+                    <img src="{avatar_url}" width="64">
                     <b>{row['名前']}</b>
                     <br><span style='color:#27b0e7;font-weight:bold'>OVR:{row['総合']}</span>
                     <br>{row['ポジション']} / {row['年齢']} / {row['国籍']}
@@ -441,16 +447,20 @@ if main_tab == "Standings":
         else:
             ai_df = st.session_state.ai_players[st.session_state.ai_players["所属クラブ"]==t]
             total_goals = ai_df["得点"].sum() if "得点" in ai_df.columns else 0
-        tbl.append([t, st.session_state.team_points.get(t,0), total_goals])
-    dft = pd.DataFrame(tbl, columns=["Rank","Club","Pts","Goals"])
+        pts = st.session_state.team_points.get(t,0)
+        tbl.append([t, pts, total_goals])
+
+    dft = pd.DataFrame(tbl, columns=["Club","Pts","Goals"])
     dft = dft.sort_values(["Pts","Goals"], ascending=[False,False]).reset_index(drop=True)
     dft["Rank"] = dft.index + 1
+    dft = dft[["Rank","Club","Pts","Goals"]]  # Rankを左端に移動
+
     st.markdown(
         "<div class='mobile-table table-highlight'><table><thead><tr>" +
-        "".join([f"<th>{col}</th>" for col in ["Rank","Club","Pts","Goals"]]) +
+        "".join([f"<th>{col}</th>" for col in dft.columns]) +
         "</tr></thead><tbody>" +
         "".join([
-            "<tr>" + "".join([f"<td>{row[col]}</td>" for col in ["Rank","Club","Pts","Goals"]]) + "</tr>"
+            "<tr>" + "".join([f"<td>{row[col]}</td>" for col in dft.columns]) + "</tr>"
             for _, row in dft.iterrows()
         ]) +
         "</tbody></table></div>", unsafe_allow_html=True
