@@ -14,85 +14,39 @@ st.markdown("""
     <style>
     html, body, .stApp { font-family: 'IPAexGothic','Meiryo',sans-serif; }
     .stApp { background: linear-gradient(120deg, #192841 0%, #24345b 100%) !important; color: #eaf6ff; }
-    .stRadio [role='radiogroup'] label {
-        background: linear-gradient(90deg,#eee969 30%,#3f98e3 100%);
-        color: #173060 !important;
-        font-weight: bold !important;
-        border-radius: 17px !important;
-        margin: 5px 9px 5px 0;
-        padding: 7px 16px !important;
-        font-size: 1.08em !important;
-        box-shadow: 0 0 8px #23aaff22;
-        border: 2px solid #23345a33;
-        display: inline-block;
-        transition: 0.18s;
-    }
-    .stRadio [role='radiogroup'] label[data-selected="true"] {
-        background: linear-gradient(90deg,#3f98e3 35%,#f7ec95 100%);
-        color: #1c233d !important;
-        border: 2.2px solid #fff16c !important;
-        box-shadow: 0 0 12px #fff16c33;
-        font-size: 1.13em !important;
-    }
     .player-card {
-        background: #fff;
-        color: #133469;
-        border-radius: 15px;
-        padding: 12px 10px 8px 10px;
-        margin: 10px 2vw 15px 2vw;
+        background: #fff; color: #133469; border-radius: 15px;
+        padding: 12px 10px 8px 10px; margin: 10px 2vw 15px 2vw;
         box-shadow: 0 0 13px #20b6ff33;
-        display: flex;
-        flex-direction: column;
-        align-items: center;
-        min-width: 140px; max-width: 170px;
-        font-size:0.99em;
-        transition: 0.15s;
-        border: 2px solid #25b5ff20;
-        position: relative;
+        display: flex; flex-direction: column; align-items: center;
+        min-width: 140px; max-width: 170px; font-size:0.99em;
+        transition: 0.15s; border: 2px solid #25b5ff20; position: relative;
     }
     .player-card img {border-radius:50%;margin-bottom:10px;border:2px solid #3398d7;background:#fff;}
     .player-card.selected {border: 2.7px solid #f5e353; box-shadow: 0 0 16px #f5e35399;}
     .player-card:hover {
-        background: #f8fcff;
-        color: #1b54a4;
-        transform: scale(1.03);
-        box-shadow: 0 0 13px #1cefff55;
-        border:2px solid #42d8ff;
+        background: #f8fcff; color: #1b54a4; transform: scale(1.03);
+        box-shadow: 0 0 13px #1cefff55; border:2px solid #42d8ff;
     }
     .player-card .detail-popup {
-        position: absolute;
-        top: 6px;
-        left: 101%;
-        z-index:10;
+        position: absolute; top: 6px; left: 101%; z-index:10;
         min-width: 180px; max-width:270px;
-        background: #202c49;
-        color: #ffe;
-        border-radius: 11px;
-        padding: 13px 12px;
-        box-shadow: 0 0 14px #131f31b2;
-        font-size: 1.02em;
-        border: 2px solid #1698d488;
+        background: #202c49; color: #ffe; border-radius: 11px;
+        padding: 13px 12px; box-shadow: 0 0 14px #131f31b2;
+        font-size: 1.02em; border: 2px solid #1698d488;
     }
-    .clickable-name {color: #2bc5ff; font-weight:700; text-decoration: underline; cursor:pointer;}
-    .clickable-name:hover {color: #ffe45a; background: #1c1f29;}
     .mobile-table {overflow-x:auto; white-space:nowrap;}
     .mobile-table th, .mobile-table td {
-        padding: 4px 9px;
-        font-size: 14px;
-        border-bottom: 1.3px solid #1c2437;
+        padding: 4px 9px; font-size: 14px; border-bottom: 1.3px solid #1c2437;
     }
-    .stDataFrame {border-radius:12px !important;}
     .table-highlight th, .table-highlight td {
-        background: #182649 !important;
-        color: #ffe45a !important;
-        border-bottom: 1.4px solid #24335d !important;
+        background: #182649 !important; color: #ffe45a !important; border-bottom: 1.4px solid #24335d !important;
     }
     </style>
 """, unsafe_allow_html=True)
 st.image(TEAM_LOGO_URL, width=48)
 st.title("Soccer Club Management Sim")
 
-# --- 略称/カラー補助 ---
 labels = ['Spd','Pas','Phy','Sta','Def','Tec','Men','Sht','Pow']
 labels_full = {
     'Spd':'Speed','Pas':'Pass','Phy':'Physical','Sta':'Stamina','Def':'Defense',
@@ -103,66 +57,24 @@ def ability_col(v):
     if v >= 75: return f"<span style='color:#ffe600;font-weight:bold'>{v}</span>"
     return f"<span style='color:#1aacef'>{v}</span>"
 
-# --- 苗字・名前 ---
-surname_pools = {
-    "日本": ["佐藤","田中","鈴木","高橋","山本","中村","小林","加藤","吉田","渡辺","山田","松本","斎藤","木村","林","清水","山口","池田","森","石川","橋本","阿部","山崎","井上","岡田","村上","石井","三浦","上田","原田","大野","福田","星野","竹内","大西"],
-    "ブラジル": ["シウバ","サントス","コスタ","オリヴェイラ","ソウザ","フェレイラ","ロドリゲス","ペレイラ","アウベス","リマ","ゴンサウベス","ゴメス","マルチンス","マシャド","ロペス","メンドンサ","アラウージョ","ピント","カルドーゾ","カストロ","モラエス","フレイタス","パイヴァ","ドスサントス","バルボーザ","メロ","テイシェイラ","ドミンゲス","メンドンサ","カブラル","カンポス","ラモス","ペレイラ","コエーリョ","サラザール"],
-    "スペイン": ["ガルシア","ロペス","マルティネス","ゴンザレス","ロドリゲス","フェルナンデス","サンチェス","ペレス","ゴメス","マルティン","ヒメネス","ルイス","ディアス","アルバレス","モレノ","ムニョス","アロンソ","グティエレス","ロメロ","トーレス","ナバロ","ドミンゲス","ベガ","ソト","サラサル","カストロ","セラーノ","イダルゴ","ラモス","イバニェス","ロサーノ","モントーヤ","プラド","パチェコ","マンサナレス"],
-    "フランス": ["マルタン","ベルナール","デュラン","プティ","ロベール","リシャール","フォール","ガルシア","ルイ","ルフェーブル","モロー","ルルー","アンドレ","ルジェ","コロンブ","ヴィダル","ジョリー","ガイヤール","フィリップ","ピカール","ピエール","ボワイエ","ブラン","バルビエ","ジラール","アダン","パスカル","フローラン","バティスト","シャルパンティエ","フレール","グラン","デマル","アベール","ラフォント"],
-    "イタリア": ["ロッシ","ルッソ","フェラーリ","エスポジト","ビアンキ","ロマーノ","コロンボ","リッチ","マリーニ","グレコ","ブルーノ","ガッリ","コンティ","マンチーニ","モレッティ","バルディーニ","ジェンティーレ","ロンバルディ","マルティーニ","マルケージ","ヴィオリ","ジアーニ","フィオリ","パルマ","デサンティス","ヴェントゥーラ","カッシーニ","ベルティ","ヴィタリ","カッパーニ","カプート","バルバ","ピッチーニ","サルトリ","ガルガーノ"],
-    "ドイツ": ["ミュラー","シュミット","シュナイダー","フィッシャー","ヴェーバー","マイヤー","ヴァーグナー","ベッカー","ホフマン","シュルツ","ケラー","リヒター","クレーマー","カール","バウアー","シュトルツ","ヴォルフ","ピンター","ブランク","リース","ローゼ","ハルトマン","ヴァイス","ランゲ","ボッシュ","ゲルハルト","フランク","ザイデル","ヴィンター","メッツガー","エルンスト","ミヒャエル","キルヒ","ドレッサー","カッツ"],
-    "イングランド": ["スミス","ジョンソン","ウィリアムズ","ブラウン","ジョーンズ","ミラー","デイビス","テイラー","クラーク","ホワイト","ハリス","マーチン","トンプソン","ロビンソン","ライト","ウォーカー","ヒル","グリーン","キング","リチャーズ","アレン","モリス","クーパー","ベイリー","ジェームズ","ウッド","スコット","モーガン","ベネット","アダムズ","ロジャース","フレッチャー","ディクソン","パーカー","フォスター"]
-}
-givenname_pools = {
-    "日本": ["翔","隼人","陸","陽平","悠真","悠人","啓太","海斗","翼","隆成","凛","優","颯太","匠","拓真","蓮","大輝","光","大和","光希","慎吾","陸斗","悠馬","洸太","楓","洋平","航","駿","晴斗","航太","亮介","竜也","渉","一輝","瑞希"],
-    "ブラジル": ["マテウス","パブロ","ルーカス","リカルド","アンドレ","ジョアン","エリック","ペドロ","マルコス","ジオバニ","ブルーノ","レアンドロ","ファビオ","ダニーロ","グスタボ","ガブリエル","レナン","ヴィトル","ラファエル","ジョルジ","チアゴ","エンリケ","レナト","カイオ","ジエゴ","ジウベルト","カルロス","イゴール","ラファ","ジュニオル","エヴェルトン","マルセロ","イアゴ","ホドリゴ","カウアン"],
-    "スペイン": ["アレハンドロ","パブロ","ダニエル","ミゲル","アドリアン","ハビエル","イバン","ルイス","マヌエル","ディエゴ","アルバロ","ダビド","セルヒオ","ラウル","カルロス","マリオ","ホセ","ロドリゴ","フアン","アルトゥーロ","サンティアゴ","ビクトル","ガブリエル","フェリペ","アルベルト","イニゴ","ハイメ","エリック","ルベン","イサーク","マルク","サウル","サミュエル","ジェラルド","マルティ"],
-    "フランス": ["ピエール","ジャン","トマ","アントワン","レオン","アンリ","ルカ","ダニエル","パスカル","マルク","ミカエル","ジュリアン","カミーユ","バスティアン","ロマン","アドリアン","ロイック","ガエル","ジョルダン","バンジャマン","エリオット","エミール","テオ","エンゾ","ナタン","ウーゴ","トリスタン","アレクシス","ガブリエル","ルイ","クレマン","マティス","ポール","マルタン","ジュール"],
-    "イタリア": ["ファビオ","マルコ","アレッサンドロ","サルヴァトーレ","ダニエレ","トーマス","ロレンツォ","ミケーレ","エミリオ","ルイジ","アントニオ","シモーネ","ジジ","パオロ","フランチェスコ","クラウディオ","ステファノ","クリスティアン","ニコラ","ドメニコ","マッテオ","エンリコ","カルロ","アンドレア","サミュエレ","アウグスト","ルチアーノ","ジーノ","ロベルト","エドアルド","ダヴィデ","ヴィットリオ","マルチェロ","ルカ","レオナルド"],
-    "ドイツ": ["クラウス","ティモ","ミヒャエル","ルーカス","マティアス","セバスティアン","ニコ","ラファエル","カミーロ","ダニエル","トビアス","フローリアン","クリストフ","ユリアン","モリッツ","フィリップ","アレクサンダー","シモン","フランク","オリバー","エミル","ノア","パスカル","レナード","レオナルド","カール","フェリックス","マルクス","イェンス","ベネディクト","ヨナス","レンツ","サミー","ベン","ユスティン"],
-    "イングランド": ["トーマス","ジェームズ","ウィリアム","ハリー","ジョージ","ジャック","チャールズ","ダニエル","オリバー","ルーカス","ヘンリー","エドワード","ベンジャミン","ジョシュア","サミュエル","メイソン","ジョセフ","マシュー","リアム","アーチー","イーサン","ルイ","ジェイコブ","ディラン","アルフィー","マックス","レオ","アレクサンダー","タイラー","ハーヴィー","ジェイデン","ローガン","オスカー","セバスチャン","ザック"]
-}
-def get_unique_name_by_nationality(nationality, used_names):
-    sur_pool = surname_pools.get(nationality, ["NoSurname"])
-    given_pool = givenname_pools.get(nationality, ["NoGiven"])
-    for _ in range(100):
-        surname = random.choice(sur_pool)
-        given = random.choice(given_pool)
-        if nationality == "日本":
-            name = f"{surname} {given}"
-        else:
-            name = f"{given} {surname}"
-        if name not in used_names:
-            return name
-    return f"{nationality}Player{random.randint(100,999)}"
+def format_money(euro):
+    if euro >= 1_000_000_000:
+        return f"{euro/1_000_000_000:.2f}b€"
+    elif euro >= 1_000_000:
+        return f"{euro/1_000_000:.2f}m€"
+    elif euro >= 1_000:
+        return f"{euro/1_000:.1f}k€"
+    return f"{int(euro)}€"
+
+def get_avatar_url(name):
+    # DiceBear "thumbs"（表情付きアイコン自動生成）
+    return f"https://api.dicebear.com/7.x/thumbs/png?seed={name}"
 
 PLAYER_TEAM = "ストライバーFC"
 AI_CLUB_NAMES = ["ブルーウルブズ", "ファルコンズ", "レッドスターズ", "ヴォルティス", "ユナイテッドFC", "オーシャンズ", "タイガース", "スカイバード"]
 TEAM_NUM = 8
-random.seed(42)
 AI_TEAMS = AI_CLUB_NAMES[:TEAM_NUM-1]
 ALL_TEAMS = [PLAYER_TEAM] + AI_TEAMS
-currency_unit = "€"
-
-def format_money(euro):
-    if euro >= 1_000_000_000:
-        return f"{euro/1_000_000_000:.2f}b{currency_unit}"
-    elif euro >= 1_000_000:
-        return f"{euro/1_000_000:.2f}m{currency_unit}"
-    elif euro >= 1_000:
-        return f"{euro/1_000:.1f}k{currency_unit}"
-    return f"{int(euro)}{currency_unit}"
-
-def assign_hidden_type_and_growth(df):
-    types = ["万能型","守備型","攻撃型","早熟型","晩成型","王様型"]
-    growth = np.random.randint(70, 99, len(df))
-    df["_タイプ"] = np.random.choice(types, len(df))
-    df["_成長限界"] = growth
-    return df
-
-# avataaarsスタイルの自動イラストURL生成
-def get_avatar_url(name):
-    return f"https://avatars.dicebear.com/api/avataaars/{name.replace(' ', '')}.svg"
 
 if "current_round" not in st.session_state: st.session_state.current_round = 1
 if "scout_list" not in st.session_state: st.session_state.scout_list = []
@@ -173,23 +85,18 @@ if "移籍履歴" not in st.session_state: st.session_state["移籍履歴"] = []
 if "sns_news" not in st.session_state: st.session_state["sns_news"] = []
 if "ai_players" not in st.session_state:
     ai_players = []
-    used_names = set()
-    AI_TYPES = ["攻撃型", "守備型", "バランス型"]
+    random.seed(42)
     for t in AI_TEAMS:
-        ai_type = random.choice(AI_TYPES)
         for i in range(20):
-            nationality = random.choice(list(surname_pools.keys()))
-            name = get_unique_name_by_nationality(nationality, used_names)
-            used_names.add(name)
+            name = f"AI-{t[:3]}-{i+1:02d}"
             ai_players.append({
                 "名前": name, "ポジション": random.choice(["GK","DF","MF","FW"]),
-                "年齢": random.randint(19,32), "国籍": nationality,
+                "年齢": random.randint(19,32), "国籍": random.choice(["日本","ブラジル","スペイン","フランス","イタリア","ドイツ","イングランド"]),
                 "Spd": random.randint(60,85), "Pas": random.randint(60,85),
                 "Phy": random.randint(60,85), "Sta": random.randint(60,85),
                 "Def": random.randint(60,85), "Tec": random.randint(60,85),
                 "Men": random.randint(60,85), "Sht": random.randint(60,85),
-                "Pow": random.randint(60,85), "所属クラブ": t, "AIタイプ": ai_type,
-                "出場数": 0, "得点": 0
+                "Pow": random.randint(60,85), "所属クラブ": t, "出場数": 0, "得点": 0
             })
     st.session_state.ai_players = pd.DataFrame(ai_players)
 
@@ -204,15 +111,15 @@ if "得点" not in df.columns: df["得点"] = 0
 if "契約年数" not in df.columns: df["契約年数"] = 2
 if "年俸" not in df.columns: df["年俸"] = 120_000
 df["総合"] = df[labels].mean(axis=1).astype(int)
-df = assign_hidden_type_and_growth(df)
 df_senior = df[df["年齢"] >= 19].reset_index(drop=True)
 df_youth = df[df["年齢"] < 19].reset_index(drop=True)
 if "selected_player" not in st.session_state: st.session_state.selected_player = None
 
-main_tab = st.radio("メニュー", ("Senior", "Youth", "Match", "Scout", "Standings", "Save", "SNS"), horizontal=True)
+# --- 横スライド式タブ ---
+tabs = st.tabs(["Senior", "Youth", "Match", "Scout", "Standings", "Save", "SNS"])
 
-# --- Senior ---
-if main_tab == "Senior":
+# --- Seniorタブ ---
+with tabs[0]:
     st.subheader("Senior Squad")
     main_cols = ["名前","ポジション","年齢","国籍","契約年数","年俸","総合"]
     st.markdown(
@@ -227,12 +134,10 @@ if main_tab == "Senior":
     )
     st.markdown("---")
     st.markdown("#### Player Cards")
-    cols = st.columns(2 if st.session_state.get("mobile",False) else 4)
-    detail_idx = st.session_state.selected_player["row"] if isinstance(st.session_state.selected_player, dict) and "row" in st.session_state.selected_player else -1
+    cols = st.columns(4)
     for idx, row in df_senior.iterrows():
-        with cols[idx%len(cols)]:
-            selected = detail_idx == idx
-            card_class = "player-card selected" if selected else "player-card"
+        with cols[idx%4]:
+            card_class = "player-card"
             avatar_url = get_avatar_url(row["名前"])
             st.markdown(
                 f"""<div class='{card_class}'>
@@ -241,37 +146,10 @@ if main_tab == "Senior":
                 <br><span style='color:#27b0e7;font-weight:bold'>OVR:{row['総合']}</span>
                 <br>{row['ポジション']} / {row['年齢']} / {row['国籍']}
                 <br><span style='font-size:0.92em'>契約:{row['契約年数']}｜年俸:{format_money(row['年俸'])}</span>
-                {"<div class='detail-popup'>" if selected else ""}
-                {"<b>能力チャート</b><br>" if selected else ""}
-                """, unsafe_allow_html=True)
-            if st.button("詳細", key=f"senior_{idx}"):
-                st.session_state.selected_player = {"row": idx, **row.to_dict()}
-            if selected:
-                stats = [float(row[l]) for l in labels] + [float(row[labels[0]])]
-                angles = np.linspace(0, 2 * np.pi, len(labels)+1)
-                fig, ax = plt.subplots(figsize=(2,2), subplot_kw=dict(polar=True))
-                ax.plot(angles, stats, color="#1c53d6", linewidth=2)
-                ax.fill(angles, stats, color="#87d4ff", alpha=0.21)
-                ax.set_xticks(angles[:-1])
-                ax.set_xticklabels(labels, fontsize=9, color='#ffe45a')
-                ax.set_yticklabels([])
-                fig.patch.set_alpha(0.0)
-                st.pyplot(fig, transparent=True)
-                ab_table = "<table>"
-                for l in labels:
-                    v = int(row[l])
-                    ab_table += f"<tr><td style='color:#b7e2ff;font-weight:bold'>{l}</td><td>{ability_col(v)}</td><td style='color:#bbb;font-size:0.92em'>{labels_full[l]}</td></tr>"
-                ab_table += "</table>"
-                st.markdown(ab_table, unsafe_allow_html=True)
-                st.markdown(
-                    f"ポジション: {row['ポジション']}<br>年齢: {row['年齢']}<br>国籍: {row['国籍']}<br>"
-                    f"契約年数: {row['契約年数']}年<br>年俸: {format_money(row['年俸'])}<br>"
-                    f"所属クラブ: {row.get('所属クラブ','-')}",
-                    unsafe_allow_html=True)
-                st.markdown("</div>", unsafe_allow_html=True)
+                </div>""", unsafe_allow_html=True)
 
-# --- Youth ---
-if main_tab == "Youth":
+# --- Youthタブ ---
+with tabs[1]:
     st.subheader("Youth Players")
     main_cols = ["名前","ポジション","年齢","国籍","契約年数","年俸","総合"]
     if len(df_youth) == 0:
@@ -289,12 +167,10 @@ if main_tab == "Youth":
         )
         st.markdown("---")
         st.markdown("#### Player Cards")
-        cols = st.columns(2 if st.session_state.get("mobile",False) else 4)
-        detail_idx = st.session_state.selected_player["row"] if isinstance(st.session_state.selected_player, dict) and "row" in st.session_state.selected_player else -1
+        cols = st.columns(4)
         for idx, row in df_youth.iterrows():
-            with cols[idx%len(cols)]:
-                selected = detail_idx == idx
-                card_class = "player-card selected" if selected else "player-card"
+            with cols[idx%4]:
+                card_class = "player-card"
                 avatar_url = get_avatar_url(row["名前"])
                 st.markdown(
                     f"""<div class='{card_class}'>
@@ -303,37 +179,10 @@ if main_tab == "Youth":
                     <br><span style='color:#27b0e7;font-weight:bold'>OVR:{row['総合']}</span>
                     <br>{row['ポジション']} / {row['年齢']} / {row['国籍']}
                     <br><span style='font-size:0.92em'>契約:{row['契約年数']}｜年俸:{format_money(row['年俸'])}</span>
-                    {"<div class='detail-popup'>" if selected else ""}
-                    {"<b>能力チャート</b><br>" if selected else ""}
-                    """, unsafe_allow_html=True)
-                if st.button("詳細", key=f"youth_{idx}"):
-                    st.session_state.selected_player = {"row": idx, **row.to_dict()}
-                if selected:
-                    stats = [float(row[l]) for l in labels] + [float(row[labels[0]])]
-                    angles = np.linspace(0, 2 * np.pi, len(labels)+1)
-                    fig, ax = plt.subplots(figsize=(2,2), subplot_kw=dict(polar=True))
-                    ax.plot(angles, stats, color="#1c53d6", linewidth=2)
-                    ax.fill(angles, stats, color="#87d4ff", alpha=0.21)
-                    ax.set_xticks(angles[:-1])
-                    ax.set_xticklabels(labels, fontsize=9, color='#ffe45a')
-                    ax.set_yticklabels([])
-                    fig.patch.set_alpha(0.0)
-                    st.pyplot(fig, transparent=True)
-                    ab_table = "<table>"
-                    for l in labels:
-                        v = int(row[l])
-                        ab_table += f"<tr><td style='color:#b7e2ff;font-weight:bold'>{l}</td><td>{ability_col(v)}</td><td style='color:#bbb;font-size:0.92em'>{labels_full[l]}</td></tr>"
-                    ab_table += "</table>"
-                    st.markdown(ab_table, unsafe_allow_html=True)
-                    st.markdown(
-                        f"ポジション: {row['ポジション']}<br>年齢: {row['年齢']}<br>国籍: {row['国籍']}<br>"
-                        f"契約年数: {row['契約年数']}年<br>年俸: {format_money(row['年俸'])}<br>"
-                        f"所属クラブ: {row.get('所属クラブ','-')}",
-                        unsafe_allow_html=True)
-                    st.markdown("</div>", unsafe_allow_html=True)
+                    </div>""", unsafe_allow_html=True)
 
-# --- Match ---
-if main_tab == "Match":
+# --- Matchタブ ---
+with tabs[2]:
     st.subheader("Match Simulation")
     round_idx = (st.session_state.current_round-1)%len(AI_TEAMS)
     enemy = AI_TEAMS[round_idx]
@@ -386,21 +235,19 @@ if main_tab == "Match":
         st.write(l)
 
 # --- Scout ---
-if main_tab == "Scout":
+with tabs[3]:
     st.subheader("Scout Candidates")
     st.info(f"Budget: {format_money(st.session_state.budget)}")
     if st.button("Refresh List"):
         used_names = set(df["名前"].tolist())
         st.session_state.scout_list = []
         for _ in range(5):
-            nationality = random.choice(list(surname_pools.keys()))
-            name = get_unique_name_by_nationality(nationality, used_names | set(p["名前"] for p in st.session_state.scout_list))
-            used_names.add(name)
+            name = f"スカウト-{random.randint(1000,9999)}"
             st.session_state.scout_list.append({
                 "名前": name,
                 "ポジション": random.choice(["GK", "DF", "MF", "FW"]),
                 "年齢": random.randint(19, 29),
-                "国籍": nationality,
+                "国籍": random.choice(["日本","ブラジル","スペイン","フランス","イタリア","ドイツ","イングランド"]),
                 "Spd": random.randint(60, 80),
                 "Pas": random.randint(60, 80),
                 "Phy": random.randint(60, 80),
@@ -416,13 +263,14 @@ if main_tab == "Scout":
                 "出場数": 0,
                 "所属クラブ": PLAYER_TEAM
             })
-    cols = st.columns(1 if st.session_state.get("mobile",False) else 3)
+    cols = st.columns(3)
     already = set(df["名前"].tolist())
     for idx, player in enumerate(st.session_state.scout_list):
-        with cols[idx%len(cols)]:
+        with cols[idx%3]:
             ovr = int(np.mean([player[l] for l in labels]))
+            avatar_url = get_avatar_url(player["名前"])
             st.markdown(
-                f"<div class='player-card'><b>{player['名前']}</b> <span style='color:#2cabe8;'>(OVR:{ovr})</span><br>"
+                f"<div class='player-card'><img src='{avatar_url}' width='48'><b>{player['名前']}</b> <span style='color:#2cabe8;'>(OVR:{ovr})</span><br>"
                 f"{player['ポジション']} / {player['年齢']} / {player['国籍']}<br>"
                 f"契約:{player['契約年数']}年｜年俸:{format_money(player['年俸'])}</div>", 
                 unsafe_allow_html=True)
@@ -437,7 +285,7 @@ if main_tab == "Scout":
                 st.markdown("🟦<span style='color:#888'>既に在籍</span>", unsafe_allow_html=True)
 
 # --- Standings ---
-if main_tab == "Standings":
+with tabs[4]:
     st.subheader("League Standings")
     tbl = []
     for t in ALL_TEAMS:
@@ -453,8 +301,7 @@ if main_tab == "Standings":
     dft = pd.DataFrame(tbl, columns=["Club","Pts","Goals"])
     dft = dft.sort_values(["Pts","Goals"], ascending=[False,False]).reset_index(drop=True)
     dft["Rank"] = dft.index + 1
-    dft = dft[["Rank","Club","Pts","Goals"]]  # Rankを左端に移動
-
+    dft = dft[["Rank","Club","Pts","Goals"]]
     st.markdown(
         "<div class='mobile-table table-highlight'><table><thead><tr>" +
         "".join([f"<th>{col}</th>" for col in dft.columns]) +
@@ -471,7 +318,7 @@ if main_tab == "Standings":
             st.text(l)
 
 # --- Save ---
-if main_tab == "Save":
+with tabs[5]:
     st.subheader("Data Save")
     if st.button("Save (players.csv)"):
         df.to_csv("players.csv", index=False)
@@ -481,7 +328,7 @@ if main_tab == "Save":
         st.success("AI Players list saved.")
 
 # --- SNS ---
-if main_tab == "SNS":
+with tabs[6]:
     st.subheader("SNS / Event Feed")
     if st.session_state["移籍履歴"]:
         st.write("### Recent Transfers")
@@ -492,4 +339,4 @@ if main_tab == "SNS":
         for l in st.session_state.match_log[-5:][::-1]:
             st.write(l)
 
-st.caption("デザイン/UI/機能・全修正版（スマホ対応・能力色分け・エラー防止済）")
+st.caption("デザイン/UI/全機能統合版（横スライドタブ・自動顔イラスト付き・エラー防止）")
