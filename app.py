@@ -268,6 +268,7 @@ if main_tab == "Senior":
 # --- Youth ---
 if main_tab == "Youth":
     st.subheader("Youth Players")
+    main_cols = ["名前","ポジション","年齢","国籍","契約年数","年俸","総合"]  # ← 追加しました
     if len(df_youth) == 0:
         st.info("ユース選手はいません")
     else:
@@ -441,7 +442,7 @@ if main_tab == "Standings":
             ai_df = st.session_state.ai_players[st.session_state.ai_players["所属クラブ"]==t]
             total_goals = ai_df["得点"].sum() if "得点" in ai_df.columns else 0
         tbl.append([t, st.session_state.team_points.get(t,0), total_goals])
-    dft = pd.DataFrame(tbl, columns=["Club","Pts","Goals"])
+    dft = pd.DataFrame(tbl, columns=["Rank","Club","Pts","Goals"])
     dft = dft.sort_values(["Pts","Goals"], ascending=[False,False]).reset_index(drop=True)
     dft["Rank"] = dft.index + 1
     st.markdown(
