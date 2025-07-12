@@ -9,10 +9,13 @@ from datetime import datetime
 
 # --- UI/ロゴ・デザイン・スマホ最適化 ---
 TEAM_LOGO_URL = "https://upload.wikimedia.org/wikipedia/commons/6/67/Soccer_ball_animated.svg"
+DEFAULT_FACE_URL = "https://images.unsplash.com/photo-1506744038136-46273834b3fb?fit=facearea&h=256&w=256"
 st.markdown("""
     <style>
     html, body, .stApp { font-family: 'IPAexGothic','Meiryo',sans-serif; }
     .stApp { background: linear-gradient(120deg, #192841 0%, #24345b 100%) !important; color: #eaf6ff; }
+    .stTabs [role="tab"] { color: #fff !important; background: #23335c; border-radius: 16px 16px 0 0; font-weight: bold; }
+    .stTabs [aria-selected="true"] { color: #fff !important; background: linear-gradient(90deg,#3299e2 60%,#f0e56e 100%) !important; font-size: 1.07em !important;}
     .player-card {
         background: #fff; color: #133469; border-radius: 15px;
         padding: 12px 10px 8px 10px; margin: 10px 2vw 15px 2vw;
@@ -46,11 +49,13 @@ st.markdown("""
 st.image(TEAM_LOGO_URL, width=48)
 st.title("Soccer Club Management Sim")
 
+# --- 設定 ---
 labels = ['Spd','Pas','Phy','Sta','Def','Tec','Men','Sht','Pow']
 labels_full = {
     'Spd':'Speed','Pas':'Pass','Phy':'Physical','Sta':'Stamina','Def':'Defense',
     'Tec':'Technique','Men':'Mental','Sht':'Shoot','Pow':'Power'
 }
+
 def ability_col(v):
     if v >= 90: return f"<span style='color:#20e660;font-weight:bold'>{v}</span>"
     if v >= 75: return f"<span style='color:#ffe600;font-weight:bold'>{v}</span>"
@@ -65,11 +70,38 @@ def format_money(euro):
         return f"{euro/1_000:.1f}k€"
     return f"{int(euro)}€"
 
-# --- 写真調アバターの自動生成 ---
-def get_avatar_url(name):
-    # DiceBear notionists（リアル写真調）を利用
-    # サンプル: https://api.dicebear.com/7.x/notionists/png?seed=木村隼人
-    return f"https://api.dicebear.com/7.x/notionists/png?seed={name}"
+def get_real_face_url(name):
+    # UnsplashやAI系のランダム男性・サッカー選手っぽい顔URL（擬似、実際にはダミーだが各選手に固有のURL生成可）
+    # 本運用時は、APIや画像ストレージ連携に差し替え可
+    key = abs(hash(name)) % 1000
+    # "men"顔画像セットでサッカー選手感を再現
+    return f"https://randomuser.me/api/portraits/men/{key%98+1}.jpg"
+
+def get_player_name(nationality, used_names):
+    surnames = {
+        "日本": ["佐藤","田中","鈴木","高橋","山本","中村","小林","加藤","吉田","渡辺"],
+        "ブラジル": ["シウバ","サントス","コスタ","ゴメス","ロペス","リマ","ペレイラ"],
+        "スペイン": ["ガルシア","ロペス","ゴンザレス","ロドリゲス","サンチェス"],
+        "フランス": ["マルタン","デュラン","ロベール","ルイ","ルフェーブル"],
+        "イタリア": ["ロッシ","ルッソ","フェラーリ","リッチ","マリーニ"],
+        "ドイツ": ["ミュラー","シュミット","フィッシャー","ヴェーバー","マイヤー"],
+        "イングランド": ["スミス","ジョンソン","ウィリアムズ","ブラウン","ジョーンズ"]
+    }
+    givens = {
+        "日本": ["翔","隼人","陸","陽平","悠真"],
+        "ブラジル": ["ルーカス","マテウス","リカルド","ジョアン","アンドレ"],
+        "スペイン": ["アレハンドロ","パブロ","ルイス","マヌエル","ミゲル"],
+        "フランス": ["ピエール","ジャン","トマ","ルカ","マルク"],
+        "イタリア": ["ファビオ","マルコ","アレッサンドロ","ルイジ","ダニエレ"],
+        "ドイツ": ["クラウス","ティモ","ルーカス","ミヒャエル","トビアス"],
+        "イングランド": ["トーマス","ジェームズ","ウィリアム","ハリー","オリバー"]
+    }
+    while True:
+        s = random.choice(surnames.get(nationality, ["選手"]))
+        g = random.choice(givens.get(nationality, ["太郎"]))
+        name = f"{s} {g}"
+        if name not in used_names:
+            return name
 
 PLAYER_TEAM = "ストライバーFC"
 AI_CLUB_NAMES = ["ブルーウルブズ", "ファルコンズ", "レッドスターズ", "ヴォルティス", "ユナイテッドFC", "オーシャンズ", "タイガース", "スカイバード"]
@@ -77,6 +109,7 @@ TEAM_NUM = 8
 AI_TEAMS = AI_CLUB_NAMES[:TEAM_NUM-1]
 ALL_TEAMS = [PLAYER_TEAM] + AI_TEAMS
 
+# --- セッション初期化 ---
 if "current_round" not in st.session_state: st.session_state.current_round = 1
 if "scout_list" not in st.session_state: st.session_state.scout_list = []
 if "budget" not in st.session_state: st.session_state.budget = 1_000_000
@@ -86,18 +119,21 @@ if "移籍履歴" not in st.session_state: st.session_state["移籍履歴"] = []
 if "sns_news" not in st.session_state: st.session_state["sns_news"] = []
 if "ai_players" not in st.session_state:
     ai_players = []
-    random.seed(42)
+    used_names = set()
     for t in AI_TEAMS:
         for i in range(20):
-            name = f"AI-{t[:3]}-{i+1:02d}"
+            nationality = random.choice(["日本","ブラジル","スペイン","フランス","イタリア","ドイツ","イングランド"])
+            name = get_player_name(nationality, used_names)
+            used_names.add(name)
             ai_players.append({
                 "名前": name, "ポジション": random.choice(["GK","DF","MF","FW"]),
-                "年齢": random.randint(19,32), "国籍": random.choice(["日本","ブラジル","スペイン","フランス","イタリア","ドイツ","イングランド"]),
+                "年齢": random.randint(19,32), "国籍": nationality,
                 "Spd": random.randint(60,85), "Pas": random.randint(60,85),
                 "Phy": random.randint(60,85), "Sta": random.randint(60,85),
                 "Def": random.randint(60,85), "Tec": random.randint(60,85),
                 "Men": random.randint(60,85), "Sht": random.randint(60,85),
-                "Pow": random.randint(60,85), "所属クラブ": t, "出場数": 0, "得点": 0
+                "Pow": random.randint(60,85), "所属クラブ": t, "出場数": 0, "得点": 0,
+                "顔画像": get_real_face_url(name)
             })
     st.session_state.ai_players = pd.DataFrame(ai_players)
 
@@ -112,9 +148,16 @@ if "得点" not in df.columns: df["得点"] = 0
 if "契約年数" not in df.columns: df["契約年数"] = 2
 if "年俸" not in df.columns: df["年俸"] = 120_000
 df["総合"] = df[labels].mean(axis=1).astype(int)
+if "顔画像" not in df.columns:
+    df["顔画像"] = [get_real_face_url(n) for n in df["名前"]]
 df_senior = df[df["年齢"] >= 19].reset_index(drop=True)
 df_youth = df[df["年齢"] < 19].reset_index(drop=True)
 if "selected_player" not in st.session_state: st.session_state.selected_player = None
+
+# --- プレースタイル例（実際は選手データ内に組み込む） ---
+play_styles = ["司令塔", "スピードスター", "タックルマスター", "ポストプレイヤー", "チャンスメーカー", "万能型", "エース", "なし"]
+if "プレースタイル" not in df.columns:
+    df["プレースタイル"] = [random.choice(play_styles) for _ in range(len(df))]
 
 # --- 横スライド式タブ ---
 tabs = st.tabs(["Senior", "Youth", "Match", "Scout", "Standings", "Save", "SNS"])
@@ -122,7 +165,7 @@ tabs = st.tabs(["Senior", "Youth", "Match", "Scout", "Standings", "Save", "SNS"]
 # --- Seniorタブ ---
 with tabs[0]:
     st.subheader("Senior Squad")
-    main_cols = ["名前","ポジション","年齢","国籍","契約年数","年俸","総合"]
+    main_cols = ["名前","ポジション","年齢","国籍","契約年数","年俸","総合","プレースタイル"]
     st.markdown(
         "<div class='mobile-table'><table><thead><tr>" +
         "".join([f"<th>{col}</th>" for col in main_cols]) +
@@ -139,20 +182,21 @@ with tabs[0]:
     for idx, row in df_senior.iterrows():
         with cols[idx%4]:
             card_class = "player-card"
-            avatar_url = get_avatar_url(row["名前"])
+            avatar_url = row["顔画像"] if pd.notnull(row["顔画像"]) else DEFAULT_FACE_URL
             st.markdown(
                 f"""<div class='{card_class}'>
                 <img src="{avatar_url}" width="64">
                 <b>{row['名前']}</b>
                 <br><span style='color:#27b0e7;font-weight:bold'>OVR:{row['総合']}</span>
                 <br>{row['ポジション']} / {row['年齢']} / {row['国籍']}
+                <br>スタイル: <span style="color:#f27">{row['プレースタイル']}</span>
                 <br><span style='font-size:0.92em'>契約:{row['契約年数']}｜年俸:{format_money(row['年俸'])}</span>
                 </div>""", unsafe_allow_html=True)
 
 # --- Youthタブ ---
 with tabs[1]:
     st.subheader("Youth Players")
-    main_cols = ["名前","ポジション","年齢","国籍","契約年数","年俸","総合"]
+    main_cols = ["名前","ポジション","年齢","国籍","契約年数","年俸","総合","プレースタイル"]
     if len(df_youth) == 0:
         st.info("ユース選手はいません")
     else:
@@ -172,13 +216,14 @@ with tabs[1]:
         for idx, row in df_youth.iterrows():
             with cols[idx%4]:
                 card_class = "player-card"
-                avatar_url = get_avatar_url(row["名前"])
+                avatar_url = row["顔画像"] if pd.notnull(row["顔画像"]) else DEFAULT_FACE_URL
                 st.markdown(
                     f"""<div class='{card_class}'>
                     <img src="{avatar_url}" width="64">
                     <b>{row['名前']}</b>
                     <br><span style='color:#27b0e7;font-weight:bold'>OVR:{row['総合']}</span>
                     <br>{row['ポジション']} / {row['年齢']} / {row['国籍']}
+                    <br>スタイル: <span style="color:#f27">{row['プレースタイル']}</span>
                     <br><span style='font-size:0.92em'>契約:{row['契約年数']}｜年俸:{format_money(row['年俸'])}</span>
                     </div>""", unsafe_allow_html=True)
 
@@ -214,6 +259,8 @@ with tabs[2]:
             st.pyplot(fig, transparent=True)
             my_goals = max(0, int(np.random.normal((team_strength-60)/8, 1.0)))
             op_goals = max(0, int(np.random.normal((ai_strength-60)/8, 1.0)))
+            # MOM選出（試合スタメンからランダムに選出）
+            mom = random.choice(starters)
             if my_goals > op_goals:
                 result = "Win"
                 st.session_state.team_points[PLAYER_TEAM] += 3
@@ -227,9 +274,11 @@ with tabs[2]:
             scorer = random.choice(starters) if my_goals > 0 else "なし"
             ai_scorer = random.choice(ai_df["名前"].tolist()) if op_goals > 0 else "なし"
             st.success(f"{result}! {my_goals}-{op_goals}")
-            st.info(f"得点者: {scorer} / 相手: {ai_scorer}")
+            st.info(f"得点者: {scorer} / 相手: {ai_scorer} / MOM: {mom}")
             st.session_state.current_round += 1
-            st.session_state.match_log.append(f"Round {st.session_state.current_round-1}: {PLAYER_TEAM} vs {enemy}: {my_goals}-{op_goals}, 得点: {scorer}")
+            st.session_state.match_log.append(
+                f"Round {st.session_state.current_round-1}: {PLAYER_TEAM} vs {enemy}: {my_goals}-{op_goals}, 得点: {scorer}, MOM: {mom}"
+            )
 
     st.markdown("#### 最近の試合ログ")
     for l in st.session_state.match_log[-5:][::-1]:
@@ -243,12 +292,15 @@ with tabs[3]:
         used_names = set(df["名前"].tolist())
         st.session_state.scout_list = []
         for _ in range(5):
-            name = f"スカウト-{random.randint(1000,9999)}"
+            nationality = random.choice(["日本","ブラジル","スペイン","フランス","イタリア","ドイツ","イングランド"])
+            name = get_player_name(nationality, used_names)
+            used_names.add(name)
+            style = random.choice(play_styles)
             st.session_state.scout_list.append({
                 "名前": name,
                 "ポジション": random.choice(["GK", "DF", "MF", "FW"]),
                 "年齢": random.randint(19, 29),
-                "国籍": random.choice(["日本","ブラジル","スペイン","フランス","イタリア","ドイツ","イングランド"]),
+                "国籍": nationality,
                 "Spd": random.randint(60, 80),
                 "Pas": random.randint(60, 80),
                 "Phy": random.randint(60, 80),
@@ -262,17 +314,20 @@ with tabs[3]:
                 "年俸": random.randint(100_000,180_000),
                 "得点": 0,
                 "出場数": 0,
-                "所属クラブ": PLAYER_TEAM
+                "所属クラブ": PLAYER_TEAM,
+                "顔画像": get_real_face_url(name),
+                "プレースタイル": style
             })
     cols = st.columns(3)
     already = set(df["名前"].tolist())
     for idx, player in enumerate(st.session_state.scout_list):
         with cols[idx%3]:
             ovr = int(np.mean([player[l] for l in labels]))
-            avatar_url = get_avatar_url(player["名前"])
+            avatar_url = player["顔画像"] if pd.notnull(player["顔画像"]) else DEFAULT_FACE_URL
             st.markdown(
                 f"<div class='player-card'><img src='{avatar_url}' width='48'><b>{player['名前']}</b> <span style='color:#2cabe8;'>(OVR:{ovr})</span><br>"
                 f"{player['ポジション']} / {player['年齢']} / {player['国籍']}<br>"
+                f"スタイル: <span style='color:#f27'>{player['プレースタイル']}</span><br>"
                 f"契約:{player['契約年数']}年｜年俸:{format_money(player['年俸'])}</div>", 
                 unsafe_allow_html=True)
             if player["名前"] not in already:
@@ -340,4 +395,4 @@ with tabs[6]:
         for l in st.session_state.match_log[-5:][::-1]:
             st.write(l)
 
-st.caption("デザイン/UI/全機能統合版（横スライドタブ・DiceBear写真風イラスト全自動・新選手も即生成・エラー防止）")
+st.caption("デザイン/UI/全機能統合版（リアル顔画像・タブ白・プレースタイル・スカウト名・MOM対応・省略なし）")
