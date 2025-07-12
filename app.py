@@ -1,199 +1,330 @@
+import matplotlib
+matplotlib.rc('font', family='IPAexGothic')
 import streamlit as st
 import pandas as pd
 import numpy as np
 import matplotlib.pyplot as plt
 import random
+from datetime import datetime
 
-# --------- 設定 ---------
-PLAYER_TEAM = "ストライバーFC"
-labels = ['Spd','Pas','Phy','Sta','Def','Tec','Men','Sht','Pow']
-positions = ['GK','DF','MF','FW']
-n_teams = 8
-AI_CLUBS = ["ブルーウルブズ","ファルコンズ","レッドスターズ","ヴォルティス","ユナイテッドFC","オーシャンズ","タイガース","スカイバード"][:n_teams-1]
-ALL_TEAMS = [PLAYER_TEAM] + AI_CLUBS
-
-# --------- 国籍→人種APIマッピング ---------
-def player_img(nat, seed="1"):
-    nat_map = {
-        "日本":"asian", "イングランド":"male", "ドイツ":"male", "スペイン":"male", "イタリア":"male", "フランス":"male", "ブラジル":"male"
+# --- デザイン ---
+st.set_page_config(layout="wide")
+st.markdown("""
+    <style>
+    html, body, .stApp { font-family: 'IPAexGothic','Meiryo',sans-serif; }
+    .stApp { background: linear-gradient(120deg, #182a45 0%, #27345b 100%) !important; color: #eaf6ff; }
+    .stTabs [data-baseweb="tab-list"] { color: #fff !important; }
+    .stTabs [data-baseweb="tab"] { color: #fff !important; }
+    .player-scroll { display: flex; flex-direction: row; gap: 18px; overflow-x: auto; padding: 0 4px 18px 0;}
+    .player-card {
+        min-width: 170px; max-width: 200px;
+        background: #fff; color: #133469; border-radius: 15px;
+        padding: 12px 10px 8px 10px; margin: 10px 2vw 15px 0;
+        box-shadow: 0 0 13px #20b6ff33;
+        display: flex; flex-direction: column; align-items: center;
+        font-size:1.02em;
+        border: 2px solid #25b5ff20; position: relative;
+        transition: 0.14s;
     }
-    # nationalityごとに画像API（randomuser.me）で割り当て
-    group = nat_map.get(nat, "male")
-    return f"https://randomuser.me/api/portraits/{group}/{int(seed)%99}.jpg"
+    .player-card img {border-radius:50%;margin-bottom:8px;border:2.3px solid #3398d7;background:#fff;width:68px;height:68px;object-fit:cover;}
+    .player-card .pos-label {
+        margin: 6px 0 2px 0; padding: 2px 15px; border-radius: 12px;
+        background: #132651; color: #fff; font-weight: bold;
+        font-size: 0.98em; display:inline-block;
+    }
+    .player-card .detail-btn {
+        margin-top:9px; background:#fffdc4; color:#154a91; border:none;
+        border-radius:12px; padding: 4px 16px; font-weight: bold; font-size:1em;
+        cursor:pointer; box-shadow:0 0 5px #e2dfab66;
+    }
+    .player-card .detail-btn:active { background:#f3ef9e; }
+    .budget-box {
+        background: #fffad2; color:#183159; padding: 8px 22px; border-radius: 14px; font-weight:bold;
+        display: inline-block; margin-bottom: 14px; font-size: 1.07em;
+    }
+    .save-btn, .refresh-btn {
+        background: linear-gradient(90deg, #fbe57e 30%, #ffe78a 100%);
+        color: #1c364f !important; border-radius: 16px !important;
+        font-weight: bold; font-size: 1.09em !important;
+        margin-top: 2px; margin-bottom: 12px;
+        border: none !important; box-shadow: 0 0 7px #f6f4b755;
+    }
+    .stButton > button:active { background: #f6ea8c !important; }
+    .mobile-table {overflow-x:auto; white-space:nowrap;}
+    .mobile-table th, .mobile-table td {padding: 4px 9px; font-size: 14px;}
+    .table-highlight th, .table-highlight td {background: #182649 !important; color: #ffe45a !important;}
+    </style>
+""", unsafe_allow_html=True)
+st.title("Soccer Club Management Sim")
 
+# --- 国籍別リアル顔割当 ---
+def get_realistic_face(nationality, idx=0):
+    nat_map = {
+        "日本":    ("men", 50, 20),  # Asian画像API数が限られるため仮対応→"men"
+        "イングランド": ("men", 99, 10),
+        "ドイツ":     ("men", 99, 20),
+        "スペイン":   ("men", 99, 30),
+        "イタリア":   ("men", 99, 40),
+        "フランス":   ("men", 99, 50),
+        "ブラジル":   ("men", 99, 60)
+    }
+    group, n_max, offset = nat_map.get(nationality, ("men", 99, 0))
+    num = (abs(hash(str(idx)+nationality)) % n_max) + offset
+    # randomuser.me/api/portraits/men/1.jpg ～ /men/99.jpg (欧米系、番号被り無しに調整)
+    return f"https://randomuser.me/api/portraits/{group}/{num}.jpg"
+
+# --- 年俸フォーマット ---
 def format_money(val):
-    if val >= 1_000_000_000:
-        return f"{val//1_000_000_000}b€"
-    elif val >= 1_000_000:
-        return f"{val//1_000_000}m€"
-    elif val >= 1_000:
-        return f"{val//1_000}k€"
+    if val >= 1_000_000_000: return f"{val//1_000_000_000}b€"
+    elif val >= 1_000_000: return f"{val//1_000_000}m€"
+    elif val >= 1_000: return f"{val//1_000}k€"
     return f"{int(val)}€"
 
-# --------- データロード ---------
-@st.cache_data
-def load_players():
+# --- 選手データ読み込み or 仮生成 ---
+PLAYER_TEAM = "ストライバーFC"
+labels = ['スピード','パス','フィジカル','スタミナ','ディフェンス','テクニック','メンタル','シュート','パワー']
+try:
     df = pd.read_csv("players.csv")
-    if "年俸" in df.columns:
-        df["年俸表示"] = df["年俸"].apply(format_money)
-    return df
+except:
+    # ダミーデータ自動生成
+    df = pd.DataFrame([
+        {"名前":f"木村 隼人","ポジション":"DF","年齢":27,"国籍":"日本","契約年数":2,"年俸":2_400_000,
+         "スピード":67,"パス":67,"フィジカル":66,"スタミナ":65,"ディフェンス":68,"テクニック":61,"メンタル":67,"シュート":51,"パワー":63},
+        {"名前":f"白石 翼","ポジション":"MF","年齢":23,"国籍":"日本","契約年数":1,"年俸":2_700_000,
+         "スピード":71,"パス":70,"フィジカル":63,"スタミナ":66,"ディフェンス":57,"テクニック":75,"メンタル":65,"シュート":60,"パワー":62}
+    ])
+if "総合" not in df.columns:
+    df["総合"] = df[labels].mean(axis=1).astype(int)
+if "出場数" not in df.columns: df["出場数"] = 0
+if "得点" not in df.columns: df["得点"] = 0
+if "契約年数" not in df.columns: df["契約年数"] = 2
+if "年俸" not in df.columns: df["年俸"] = 120_000
+df["所属クラブ"] = PLAYER_TEAM
 
-def save_players(df):
-    df.to_csv("players.csv", index=False)
+# --- ユース分離 ---
+df_senior = df[df["年齢"] >= 19].reset_index(drop=True)
+df_youth = df[df["年齢"] < 19].reset_index(drop=True)
 
-# --------- セッション初期化 ---------
-if "players" not in st.session_state:
-    st.session_state.players = load_players()
-if "youth" not in st.session_state:
-    st.session_state.youth = st.session_state.players[st.session_state.players["年齢"] < 19].reset_index(drop=True)
-if "senior" not in st.session_state:
-    st.session_state.senior = st.session_state.players[st.session_state.players["年齢"] >= 19].reset_index(drop=True)
-if "selected" not in st.session_state:
-    st.session_state.selected = None
-if "budget" not in st.session_state:
-    st.session_state.budget = 1_000_000
-if "scout_youth" not in st.session_state:
-    st.session_state.scout_youth = []
-if "scout_senior" not in st.session_state:
-    st.session_state.scout_senior = []
-if "auto_selected" not in st.session_state:
-    st.session_state.auto_selected = []
+# --- Session State ---
+if "selected_detail" not in st.session_state: st.session_state.selected_detail = None
+if "budget" not in st.session_state: st.session_state.budget = 1_000_000
+if "scout_list" not in st.session_state: st.session_state.scout_list = []
+if "scout_list_youth" not in st.session_state: st.session_state.scout_list_youth = []
+if "current_round" not in st.session_state: st.session_state.current_round = 1
+if "team_points" not in st.session_state: st.session_state.team_points = {PLAYER_TEAM: 0}
+if "match_log" not in st.session_state: st.session_state.match_log = []
+if "移籍履歴" not in st.session_state: st.session_state["移籍履歴"] = []
 
-# --------- CSS ---------
-st.markdown("""
-<style>
-.stApp { background: linear-gradient(120deg, #192841 0%, #24345b 100%) !important; color: #eaf6ff;}
-.player-scroll {display:flex;overflow-x:auto;}
-.player-card {background:#fff;color:#113269;border-radius:15px;padding:10px 14px;margin:9px 7px;min-width:160px;max-width:160px;box-shadow:0 0 8px #19cdf6cc;}
-.player-card img{border-radius:50%;width:55px;height:55px;margin-bottom:5px;}
-.detail-btn{background:#ffea3a;color:#182841;border:none;border-radius:12px;padding:3px 14px;font-weight:bold;margin:7px 0;}
-.detail-btn:hover{background:#f2be21;color:#2a275b;}
-.squad-btn{background:#fffde7;color:#1c2e4d;border-radius:11px;padding:5px 16px;font-weight:bold;}
-.squad-btn:hover{background:#ffe800;color:#2a275b;}
-.tabber .stTabs [data-baseweb="tab"] {color:#fff;}
-.pos-label{background:#182841;color:#fff;padding:2px 15px;border-radius:9px;font-weight:bold;display:inline-block;}
-.save-btn{background:#1caad7;color:#fff;border-radius:10px;padding:6px 18px;font-weight:bold;}
-</style>
-""", unsafe_allow_html=True)
+# --- 横スクロール選手カード ---
+def show_players(df, is_youth=False):
+    # 横スクロールエリア
+    st.markdown("<div class='player-scroll'>" +
+        "".join([
+            f"""
+            <div class='player-card'>
+                <img src='{get_realistic_face(row['国籍'], row['名前'])}'>
+                <b>{row['名前']}</b>
+                <div class='pos-label'>{row['ポジション']}</div>
+                <br>OVR:{row['総合']} / {row['年齢']} / {row['国籍']}
+                <br>契約:{row['契約年数']} | 年俸:{format_money(row['年俸'])}
+                <form action="#" method="get">
+                    <button class='detail-btn' name='det{row.name}_{'y' if is_youth else 's'}' type='submit'>詳細</button>
+                </form>
+            </div>
+            """
+            for _, row in df.iterrows()
+        ]) + "</div>", unsafe_allow_html=True
+    )
 
-# --------- メインUI ---------
-st.title("Soccer Club Management Sim")
+# --- 詳細クリック処理（仮:選手名をstate保存し再描画時に下部表示）---
+if st.query_params:
+    for k in st.query_params:
+        if k.startswith("det"):
+            idx, tag = k[3:].split("_")
+            idx = int(idx)
+            if tag == "y":
+                st.session_state.selected_detail = ("youth", idx)
+            else:
+                st.session_state.selected_detail = ("senior", idx)
+            st.experimental_set_query_params()  # クリア
+
+# --- レーダーチャート ---
+def show_radar(row):
+    data = [row[l] for l in labels]
+    angles = np.linspace(0, 2*np.pi, len(labels), endpoint=False).tolist()
+    data += data[:1]; angles += angles[:1]
+    fig, ax = plt.subplots(figsize=(3.5,3), subplot_kw=dict(polar=True))
+    ax.plot(angles, data, linewidth=2, marker='o')
+    ax.fill(angles, data, alpha=0.27)
+    ax.set_xticks(angles[:-1])
+    ax.set_xticklabels(labels)
+    ax.set_yticklabels([])
+    ax.set_title(row["名前"], size=14)
+    st.pyplot(fig)
+
+# --- タブ ---
 tabs = st.tabs(["Senior", "Youth", "Match", "Scout", "Standings", "Save", "SNS"])
 
 # --- Seniorタブ ---
 with tabs[0]:
     st.subheader("Senior Squad")
-    df = st.session_state.senior
-    st.markdown("<div class='player-scroll'>" +
+    main_cols = ["名前","ポジション","年齢","国籍","契約年数","年俸","総合"]
+    st.markdown(
+        "<div class='mobile-table'><table><thead><tr>" +
+        "".join([f"<th>{col}</th>" for col in main_cols]) +
+        "</tr></thead><tbody>" +
         "".join([
-            f"<div class='player-card'><img src='{player_img(row['国籍'], row['名前'])}' />"
-            f"<b>{row['名前']}</b><div class='pos-label'>{row['ポジション']}</div>"
-            f"<br>OVR:{row['総合']} / {row['年齢']} / {row['国籍']}<br>契約:{row['契約年数']} | 年俸:{format_money(row['年俸'])}"
-            f"<br><button class='detail-btn' onclick='window.detail={idx}' >詳細</button>"
-            f"</div>"
-        for idx, row in df.iterrows()]) + "</div>", unsafe_allow_html=True)
-    # 詳細ボタン(サンプル:本来はjs→st.session_state.selectedで)
+            "<tr>" + "".join([f"<td>{row[col]}</td>" for col in main_cols]) + "</tr>"
+            for _, row in df_senior.iterrows()
+        ]) +
+        "</tbody></table></div>", unsafe_allow_html=True
+    )
+    st.markdown("---")
+    st.markdown("#### Players")
+    show_players(df_senior, is_youth=False)
+    # 詳細表示
+    if st.session_state.selected_detail and st.session_state.selected_detail[0]=="senior":
+        idx = st.session_state.selected_detail[1]
+        if idx < len(df_senior):
+            row = df_senior.iloc[idx]
+            st.markdown(f"### {row['名前']}（{row['ポジション']}）詳細")
+            st.write({l:row[l] for l in labels})
+            show_radar(row)
 
 # --- Youthタブ ---
 with tabs[1]:
     st.subheader("Youth Squad")
-    df = st.session_state.youth
-    st.markdown("<div class='player-scroll'>" +
-        "".join([
-            f"<div class='player-card'><img src='{player_img(row['国籍'], row['名前'])}' />"
-            f"<b>{row['名前']}</b><div class='pos-label'>{row['ポジション']}</div>"
-            f"<br>OVR:{row['総合']} / {row['年齢']} / {row['国籍']}<br>契約:{row['契約年数']} | 年俸:{format_money(row['年俸'])}"
-            f"<br><button class='detail-btn' onclick='window.detail={idx}' >詳細</button>"
-            f"</div>"
-        for idx, row in df.iterrows()]) + "</div>", unsafe_allow_html=True)
+    if len(df_youth) == 0:
+        st.info("ユース選手はいません")
+    else:
+        main_cols = ["名前","ポジション","年齢","国籍","契約年数","年俸","総合"]
+        st.markdown(
+            "<div class='mobile-table'><table><thead><tr>" +
+            "".join([f"<th>{col}</th>" for col in main_cols]) +
+            "</tr></thead><tbody>" +
+            "".join([
+                "<tr>" + "".join([f"<td>{row[col]}</td>" for col in main_cols]) + "</tr>"
+                for _, row in df_youth.iterrows()
+            ]) +
+            "</tbody></table></div>", unsafe_allow_html=True
+        )
+        st.markdown("---")
+        st.markdown("#### Players")
+        show_players(df_youth, is_youth=True)
+        # 詳細表示
+        if st.session_state.selected_detail and st.session_state.selected_detail[0]=="youth":
+            idx = st.session_state.selected_detail[1]
+            if idx < len(df_youth):
+                row = df_youth.iloc[idx]
+                st.markdown(f"### {row['名前']}（{row['ポジション']}）詳細")
+                st.write({l:row[l] for l in labels})
+                show_radar(row)
 
 # --- Matchタブ ---
 with tabs[2]:
     st.subheader("Match Simulation")
-    st.markdown("##### [推奨]『オススメ編成』ボタンですぐ11人をセット可能")
-    if st.button("オススメ編成", key="auto_sel", help="最適11人を自動選出"):
-        df = st.session_state.senior.sort_values("総合", ascending=False)
-        st.session_state.auto_selected = df.head(11)["名前"].tolist()
-    names = st.session_state.senior["名前"].tolist()
-    sel = st.multiselect("Starting XI", names, default=st.session_state.auto_selected, key="sel_starter")
-    st.markdown("<div class='player-scroll'>" +
-        "".join([
-            f"<div class='player-card'><img src='{player_img(row['国籍'], row['名前'])}' />"
-            f"<b>{row['名前']}</b><div class='pos-label'>{row['ポジション']}</div>"
-            f"<br>OVR:{row['総合']} / {row['年齢']} / {row['国籍']}<br></div>"
-        for _, row in st.session_state.senior[st.session_state.senior['名前'].isin(sel)].iterrows()
-    ]) + "</div>", unsafe_allow_html=True)
-    # ボタン色調整済
+    # 自動編成 or 手動選択
+    st.markdown("**おすすめ編成で自動選出**：")
+    if st.button("おすすめ編成", key="auto_pick"):
+        auto_starters = df_senior.sort_values(labels, ascending=False).head(11)["名前"].tolist()
+        st.session_state["starters"] = auto_starters
+    else:
+        auto_starters = st.session_state.get("starters", df_senior.sort_values(labels, ascending=False).head(11)["名前"].tolist())
+    starters = st.multiselect("Starting XI", df_senior["名前"].tolist(), default=auto_starters, key="starters")
+    st.markdown("<span style='color:#fff;font-weight:bold;'>ポジション：GK/DF/MF/FW（手動で調整可）</span>", unsafe_allow_html=True)
+    if len(starters) != 11:
+        st.warning("11人ちょうど選んでください")
+    else:
+        tactics = st.selectbox("Tactics", ["Attack", "Balanced", "Defensive", "Counter", "Possession"])
+        if st.button("Kickoff!", key=f"kick_{datetime.now().isoformat()}_{random.random()}"):
+            team_strength = df_senior[df_senior["名前"].isin(starters)][labels].mean().mean() + random.uniform(-2, 2)
+            ai_strength = 73 + random.uniform(-2, 2)
+            pwin = (team_strength / (team_strength+ai_strength)) if (team_strength+ai_strength)>0 else 0.5
+            st.markdown(f"<span style='color:#fff;font-size:1.1em;font-weight:bold;'>推定勝率：{int(pwin*100)}%</span>", unsafe_allow_html=True)
+            my_goals = max(0, int(np.random.normal((team_strength-60)/8, 1.0)))
+            op_goals = max(0, int(np.random.normal((ai_strength-60)/8, 1.0)))
+            if my_goals > op_goals:
+                result = "Win"
+                st.session_state.team_points[PLAYER_TEAM] += 3
+            elif my_goals < op_goals:
+                result = "Lose"
+            else:
+                result = "Draw"
+                st.session_state.team_points[PLAYER_TEAM] += 1
+            st.success(f"{result}! {my_goals}-{op_goals}")
+            st.session_state.match_log.append(f"Match: {result}! {my_goals}-{op_goals}")
+    st.markdown("#### 最近の試合ログ")
+    for l in st.session_state.match_log[-5:][::-1]:
+        st.write(l)
 
-# --- Scoutタブ ---
+# --- Scoutタブ（シニア・ユース） ---
 with tabs[3]:
-    st.subheader("Scout Candidates (Senior / Youth)")
-    c1, c2 = st.columns(2)
-    with c1:
-        if st.button("シニアスカウト更新", key="scout_senior", help="新しいシニア候補を表示", type="primary"):
-            # ダミー生成（ランダム/国籍ごと）
-            st.session_state.scout_senior = []
-            for _ in range(5):
-                nat = random.choice(list(["日本","イングランド","ドイツ","スペイン","フランス","イタリア","ブラジル"]))
-                name = f"SC{random.randint(1000,9999)}"
-                st.session_state.scout_senior.append({
-                    "名前": name,
-                    "ポジション": random.choice(positions),
-                    "年齢": random.randint(20,30),
-                    "国籍": nat,
-                    "総合": random.randint(60,85),
-                    "契約年数":2,
-                    "年俸": random.randint(120_000,350_000)
-                })
-        st.markdown("<div class='player-scroll'>" +
-            "".join([
-                f"<div class='player-card'><img src='{player_img(x['国籍'], x['名前'])}' />"
-                f"<b>{x['名前']}</b><div class='pos-label'>{x['ポジション']}</div>"
-                f"<br>OVR:{x['総合']} / {x['年齢']} / {x['国籍']}<br>契約:{x['契約年数']} | 年俸:{format_money(x['年俸'])}"
-                f"<br><button class='detail-btn'>加入</button></div>"
-            for x in st.session_state.scout_senior]) + "</div>", unsafe_allow_html=True)
-    with c2:
-        if st.button("ユーススカウト更新", key="scout_youth", help="新しいユース候補を表示", type="primary"):
-            st.session_state.scout_youth = []
-            for _ in range(4):
-                nat = random.choice(list(["日本","イングランド","ドイツ","スペイン","フランス","イタリア","ブラジル"]))
-                name = f"YTH{random.randint(1000,9999)}"
-                st.session_state.scout_youth.append({
-                    "名前": name,
-                    "ポジション": random.choice(positions),
-                    "年齢": random.randint(15,18),
-                    "国籍": nat,
-                    "総合": random.randint(54,75),
-                    "契約年数":2,
-                    "年俸": random.randint(60_000,130_000)
-                })
-        st.markdown("<div class='player-scroll'>" +
-            "".join([
-                f"<div class='player-card'><img src='{player_img(x['国籍'], x['名前'])}' />"
-                f"<b>{x['名前']}</b><div class='pos-label'>{x['ポジション']}</div>"
-                f"<br>OVR:{x['総合']} / {x['年齢']} / {x['国籍']}<br>契約:{x['契約年数']} | 年俸:{format_money(x['年俸'])}"
-                f"<br><button class='detail-btn'>加入</button></div>"
-            for x in st.session_state.scout_youth]) + "</div>", unsafe_allow_html=True)
+    st.subheader("Scout Candidates")
+    st.markdown(f"<span class='budget-box'>Budget: {format_money(st.session_state.budget)}</span>", unsafe_allow_html=True)
+    if st.button("Refresh List", key="refresh_scout", help="新しいシニアスカウト候補を生成", type="primary"):
+        st.session_state.scout_list = []
+        for i in range(5):
+            nationality = random.choice(["日本","ブラジル","スペイン","フランス","イタリア","ドイツ","イングランド"])
+            name = f"スカウト{i+1} {nationality}"
+            st.session_state.scout_list.append({
+                "名前": name, "ポジション": random.choice(["GK","DF","MF","FW"]),
+                "年齢": random.randint(20, 28), "国籍": nationality,
+                "契約年数": 2, "年俸": random.randint(110_000,200_000),
+                "総合": random.randint(64,80)
+            })
+    # --- シニアスカウト ---
+    st.markdown("##### シニア候補")
+    show_players(pd.DataFrame(st.session_state.scout_list), is_youth=False)
+    # --- ユーススカウト ---
+    st.markdown("##### ユース候補")
+    if st.button("ユースRefresh", key="refresh_scout_youth", help="新しいユーススカウト候補を生成", type="primary"):
+        st.session_state.scout_list_youth = []
+        for i in range(4):
+            nationality = random.choice(["日本","ブラジル","スペイン","フランス","イタリア","ドイツ","イングランド"])
+            name = f"ユーススカウト{i+1} {nationality}"
+            st.session_state.scout_list_youth.append({
+                "名前": name, "ポジション": random.choice(["GK","DF","MF","FW"]),
+                "年齢": random.randint(14, 18), "国籍": nationality,
+                "契約年数": 2, "年俸": random.randint(80_000,140_000),
+                "総合": random.randint(59,75)
+            })
+    show_players(pd.DataFrame(st.session_state.scout_list_youth), is_youth=True)
 
-# --- Standingsタブ ---
+# --- Standings ---
 with tabs[4]:
     st.subheader("League Standings")
-    # サンプル表示
-    tbl = [[t,random.randint(3,25),random.randint(5,60)] for t in ALL_TEAMS]
+    tbl = [[PLAYER_TEAM, st.session_state.team_points[PLAYER_TEAM], df_senior["得点"].sum()]]
     dft = pd.DataFrame(tbl, columns=["Club","Pts","Goals"])
-    dft["Rank"] = dft["Pts"].rank(ascending=False,method="min").astype(int)
-    st.dataframe(dft.sort_values("Rank"))
+    dft["Rank"] = dft.index + 1
+    dft = dft[["Rank","Club","Pts","Goals"]]
+    st.markdown(
+        "<div class='mobile-table table-highlight'><table><thead><tr>" +
+        "".join([f"<th>{col}</th>" for col in dft.columns]) +
+        "</tr></thead><tbody>" +
+        "".join([
+            "<tr>" + "".join([f"<td>{row[col]}</td>" for col in dft.columns]) + "</tr>"
+            for _, row in dft.iterrows()
+        ]) +
+        "</tbody></table></div>", unsafe_allow_html=True
+    )
 
-# --- Saveタブ ---
+# --- Save ---
 with tabs[5]:
-    st.subheader("データ保存")
-    if st.button("Save All", type="primary"):
-        save_players(st.session_state.players)
-        st.success("保存完了")
+    st.subheader("Data Save")
+    if st.button("Save (players.csv)", key="save_btn", help="選手データを保存", type="primary"):
+        df.to_csv("players.csv", index=False)
+        st.success("Saved! (players.csv)")
 
 # --- SNS ---
 with tabs[6]:
-    st.subheader("SNS")
-    st.write("イベント履歴・トピック・移籍情報など")
+    st.subheader("SNS / Event Feed")
+    if st.session_state["移籍履歴"]:
+        st.write("### Recent Transfers")
+        for news in st.session_state["移籍履歴"][-5:][::-1]:
+            st.info(news)
+    if st.session_state.match_log:
+        st.write("### Recent Matches")
+        for l in st.session_state.match_log[-5:][::-1]:
+            st.write(l)
 
-st.caption("短縮統合版 v2025-07/サッカー選手写真・国籍/人種反映/横スクロール/全ボタン調整/オススメ編成/スカウト完全分離")
+st.caption("2025年最新版：国籍別リアル顔＋横スクロール＋編成補助＋全機能一体統合・エラー防止")
