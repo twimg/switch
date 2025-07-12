@@ -9,7 +9,6 @@ from datetime import datetime
 
 # --- UI/ロゴ・デザイン・スマホ最適化 ---
 TEAM_LOGO_URL = "https://upload.wikimedia.org/wikipedia/commons/6/67/Soccer_ball_animated.svg"
-PLAYER_ICON_URL = "https://cdn-icons-png.flaticon.com/512/847/847969.png"
 st.markdown("""
     <style>
     html, body, .stApp { font-family: 'IPAexGothic','Meiryo',sans-serif; }
@@ -66,9 +65,11 @@ def format_money(euro):
         return f"{euro/1_000:.1f}k€"
     return f"{int(euro)}€"
 
+# --- 写真調アバターの自動生成 ---
 def get_avatar_url(name):
-    # DiceBear "thumbs"（表情付きアイコン自動生成）
-    return f"https://api.dicebear.com/7.x/thumbs/png?seed={name}"
+    # DiceBear notionists（リアル写真調）を利用
+    # サンプル: https://api.dicebear.com/7.x/notionists/png?seed=木村隼人
+    return f"https://api.dicebear.com/7.x/notionists/png?seed={name}"
 
 PLAYER_TEAM = "ストライバーFC"
 AI_CLUB_NAMES = ["ブルーウルブズ", "ファルコンズ", "レッドスターズ", "ヴォルティス", "ユナイテッドFC", "オーシャンズ", "タイガース", "スカイバード"]
@@ -339,4 +340,4 @@ with tabs[6]:
         for l in st.session_state.match_log[-5:][::-1]:
             st.write(l)
 
-st.caption("デザイン/UI/全機能統合版（横スライドタブ・自動顔イラスト付き・エラー防止）")
+st.caption("デザイン/UI/全機能統合版（横スライドタブ・DiceBear写真風イラスト全自動・新選手も即生成・エラー防止）")
