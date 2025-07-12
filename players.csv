@@ -1,178 +1,102 @@
 import random
 
-# --- 各国の名前データ（ファーストネーム・ファミリーネーム 各30件ずつ） ---
-names_data = {
-    "日本": {
-        "family": [
-            "佐藤","鈴木","高橋","田中","伊藤","渡辺","山本","中村","小林","加藤",
-            "吉田","山田","佐々木","山口","松本","井上","木村","林","斎藤","清水",
-            "山崎","森","阿部","池田","橋本","石川","小川","前田","藤田","後藤"
-        ],
-        "first": [
-            "大輔","翼","颯太","悠真","拓海","大地","翔太","蓮","悠斗","瑛太",
-            "駿","晴","優","隼人","大和","和真","圭介","太一","雄大","智也",
-            "啓太","健太","優斗","亮太","剛","洸","真","翼太","渉","快斗"
-        ],
-        "salary_base": 1500000
-    },
-    "ブラジル": {
-        "family": [
-            "シウバ","サントス","コスタ","リベイロ","アルベス","ロドリゲス","パウリスタ","ゴメス","マルチンス","ソウザ",
-            "ペレイラ","カルドーゾ","フェレイラ","メンドンサ","サラザール","モラエス","ドミンゲス","フレイタス","ピント","ロペス",
-            "リマ","アラウージョ","メロ","バルボーザ","ゴンサウベス","カストロ","パイヴァ","バルディビア","ジュニオル","ドスサントス"
-        ],
-        "first": [
-            "ルーカス","ジョアン","カイオ","マテウス","チアゴ","レナト","イゴール","アレックス","ブルーノ","ジエゴ",
-            "リカルド","フェリペ","ダニーロ","ホドリゴ","パブロ","エドゥアルド","ヴィトル","ジョルジ","ダヴィ","レオナルド",
-            "マルセロ","カミロ","グスタボ","ジョゼ","マルコン","マルコス","アンドレ","アントニオ","イエゴ","ホナウド"
-        ],
-        "salary_base": 800000
-    },
-    "スペイン": {
-        "family": [
-            "ガルシア","ロペス","マルティネス","ロドリゲス","フェルナンデス","ゴンサレス","サンチェス","ペレス","マルティン","ヒメネス",
-            "ルイス","ディアス","アルバレス","モレノ","ムニョス","アロンソ","グティエレス","ロメロ","トーレス","ナバロ",
-            "ドミンゲス","ベガ","ソト","サラサル","カストロ","セラーノ","イダルゴ","ラモス","イバニェス","ロサーノ"
-        ],
-        "first": [
-            "カルロス","ダビド","パブロ","アルバロ","セルヒオ","ルイス","イバン","ホセ","ミゲル","フアン",
-            "アドリアン","イニゴ","アレハンドロ","マヌエル","アントニオ","サムエル","アルベルト","ルベン","マルク","ジェラルド",
-            "ビクトル","ラウル","ディエゴ","フェリペ","エリック","サンティアゴ","ダニエル","ハビエル","マリオ","マルティ"
-        ],
-        "salary_base": 2200000
-    },
-    "フランス": {
-        "family": [
-            "マルタン","デュポン","ルフェーブル","ルロワ","モレル","ルイ","ガルシア","ロベール","リシャール","フォール",
-            "プティ","ベルナール","ピカール","ガイヤール","ジョリー","ヴィダル","ピエール","アンドレ","モロー","ルルー",
-            "アダン","ジラール","バルビエ","グラン","デマル","バティスト","コロンブ","フローラン","ラフォント","ブラン"
-        ],
-        "first": [
-            "リュカ","テオ","キリアン","エンゾ","ジュリアン","アントワーヌ","トマ","ピエール","ジャン","ルカ",
-            "ガエル","ジョルダン","バンジャマン","エリオット","エミール","テオ","ナタン","ロマン","マルク","ジュール",
-            "パスカル","ミカエル","ロイック","ロイ","クレマン","アドリアン","ポール","マルタン","アレクシス","バスティアン"
-        ],
-        "salary_base": 2000000
-    },
-    "ドイツ": {
-        "family": [
-            "ミュラー","シュミット","シュナイダー","ベッカー","ヴァーグナー","ホフマン","シュルツ","ケラー","リヒター","クレーマー",
-            "カール","バウアー","ヴォルフ","ブランク","リース","ローゼ","ハルトマン","ヴァイス","ランゲ","ボッシュ",
-            "ゲルハルト","フランク","ザイデル","ヴィンター","メッツガー","エルンスト","ミヒャエル","キルヒ","ドレッサー","カッツ"
-        ],
-        "first": [
-            "マックス","フィリップ","ユリアン","トーマス","ルーカス","セバスティアン","ニコ","ダニエル","トビアス","フローリアン",
-            "クリストフ","モリッツ","シモン","フランク","オリバー","ノア","パスカル","レナード","ヨナス","ベン",
-            "サミー","ユスティン","レオン","ダヴィド","マルクス","イェンス","フェリックス","カール","ベネディクト","エミル"
-        ],
-        "salary_base": 2100000
-    },
-    "イングランド": {
-        "family": [
-            "スミス","ジョンソン","ウィリアムズ","ブラウン","ジョーンズ","ミラー","デイビス","テイラー","クラーク","ホワイト",
-            "ハリス","マーチン","トンプソン","ロビンソン","ライト","ウォーカー","ヒル","グリーン","キング","リチャーズ",
-            "アレン","モリス","クーパー","ベイリー","ジェームズ","ウッド","スコット","モーガン","ベネット","アダムズ"
-        ],
-        "first": [
-            "トーマス","ジェームズ","ウィリアム","ハリー","ジョージ","ジャック","チャールズ","ダニエル","オリバー","ルーカス",
-            "ヘンリー","エドワード","ベンジャミン","ジョシュア","サミュエル","メイソン","ジョセフ","マシュー","リアム","アーチー",
-            "イーサン","ルイ","ジェイコブ","ディラン","アルフィー","マックス","レオ","タイラー","ハーヴィー","オスカー"
-        ],
-        "salary_base": 2500000
-    },
-    "イタリア": {
-        "family": [
-            "ロッシ","ルッソ","フェラーリ","エスポジト","ビアンキ","ロマーノ","コロンボ","リッチ","マリーニ","グレコ",
-            "ブルーノ","ガッリ","コンティ","マンチーニ","モレッティ","バルディーニ","ジェンティーレ","ロンバルディ","マルティーニ","マルケージ",
-            "ヴィオリ","ジアーニ","フィオリ","パルマ","デサンティス","ヴェントゥーラ","カッシーニ","ベルティ","ヴィタリ","ピッチーニ"
-        ],
-        "first": [
-            "ファビオ","マルコ","アレッサンドロ","サルヴァトーレ","ダニエレ","トーマス","ロレンツォ","ミケーレ","エミリオ","ルイジ",
-            "アントニオ","シモーネ","ジジ","パオロ","フランチェスコ","クラウディオ","ステファノ","クリスティアン","ニコラ","ドメニコ",
-            "マッテオ","エンリコ","カルロ","アンドレア","サミュエレ","アウグスト","ルチアーノ","ジーノ","ロベルト","エドアルド"
-        ],
-        "salary_base": 2200000
-    }
+# --- 国籍別ネームプール ---
+surname_pools = {
+    "日本": ["佐藤","鈴木","高橋","田中","伊藤","渡辺","山本","中村","小林","加藤",
+           "吉田","山田","佐々木","山口","松本","井上","木村","林","斎藤","清水",
+           "山崎","森","池田","橋本","阿部","石川","石井","村上","藤田","坂本"],
+    "イングランド": ["Smith","Jones","Williams","Taylor","Brown","Davies","Evans","Wilson","Johnson","Roberts",
+           "Thompson","Wright","Walker","White","Green","Hall","Wood","Martin","Harris","Cooper",
+           "King","Clark","Baker","Turner","Carter","Mitchell","Scott","Phillips","Adams","Campbell"],
+    "ドイツ": ["Müller","Schmidt","Schneider","Fischer","Weber","Meyer","Wagner","Becker","Hoffmann","Schulz",
+         "Keller","Richter","Koch","Bauer","Wolf","Neumann","Schwarz","Krüger","Zimmermann","Braun",
+         "Hartmann","Lange","Schmitt","Werner","Krause","Meier","Lehmann","Schmid","Schulze","Maier"],
+    "スペイン": ["García","Martínez","Rodríguez","López","Sánchez","Pérez","Gómez","Martín","Jiménez","Ruiz",
+            "Hernández","Díaz","Moreno","Muñoz","Álvarez","Romero","Alonso","Gutiérrez","Navarro","Torres",
+            "Domínguez","Vega","Castro","Ramos","Flores","Ortega","Serrano","Blanco","Suárez","Molina"],
+    "フランス": ["Martin","Bernard","Dubois","Thomas","Robert","Richard","Petit","Durand","Leroy","Moreau",
+             "Simon","Laurent","Lefebvre","Michel","Garcia","David","Bertrand","Roux","Vincent","Fournier",
+             "Girard","Bonnet","Dupont","Lambert","Fontaine","Rousseau","Blanchard","Guerin","Muller","Marchand"],
+    "イタリア": ["Rossi","Russo","Ferrari","Esposito","Bianchi","Romano","Colombo","Ricci","Marino","Greco",
+             "Bruno","Gallo","Conti","De Luca","Mancini","Costa","Giordano","Rizzo","Lombardi","Moretti",
+             "Barbieri","Mariani","Santoro","Vitale","Martini","Bianco","Longo","Leone","Gentile","Lombardo"],
+    "ブラジル": ["Silva","Santos","Oliveira","Souza","Rodrigues","Ferreira","Almeida","Costa","Gomes","Martins",
+             "Araújo","Ribeiro","Barbosa","Barros","Freitas","Lima","Teixeira","Fernandes","Pereira","Carvalho",
+             "Moura","Macedo","Azevedo","Cardoso","Moreira","Castro","Campos","Rocha","Pinto","Nascimento"]
 }
 
-# --- 名前生成 ---
-def get_unique_name_by_nationality(nationality, used_names):
-    fams = names_data[nationality]["family"]
-    firsts = names_data[nationality]["first"]
-    for _ in range(100):
-        fn = random.choice(fams)
-        ln = random.choice(firsts)
-        if nationality == "日本":
-            name = f"{fn} {ln}"
-        else:
-            name = f"{ln} {fn}"
-        if name not in used_names:
-            return name
-    return f"{ln} {fn}"
+givenname_pools = {
+    "日本": ["翔","大輔","陸","颯太","陽平","悠真","隼人","啓太","海斗","翼",
+           "優","拓真","蓮","大輝","駿","光希","悠人","慎吾","洸太","楓",
+           "龍也","亮介","航太","一輝","健太","達也","幸太","悠馬","瑛太","渉"],
+    "イングランド": ["Oliver","Jack","Harry","George","Noah","Charlie","Jacob","Thomas","Oscar","William",
+           "James","Henry","Leo","Alfie","Joshua","Freddie","Archie","Arthur","Logan","Alexander",
+           "Harrison","Benjamin","Mason","Ethan","Finley","Lucas","Isaac","Edward","Samuel","Joseph"],
+    "ドイツ": ["Leon","Ben","Paul","Jonas","Elias","Finn","Noah","Luis","Luca","Felix",
+         "Maximilian","Moritz","Tim","Julian","Max","David","Jakob","Emil","Philipp","Tom",
+         "Nico","Fabian","Marlon","Samuel","Daniel","Jan","Simon","Jonathan","Aaron","Mika"],
+    "スペイン": ["Alejandro","Pablo","Daniel","Adrián","Javier","David","Hugo","Mario","Manuel","Álvaro",
+            "Diego","Miguel","Raúl","Carlos","José","Antonio","Andrés","Fernando","Iván","Sergio",
+            "Alberto","Juan","Rubén","Ángel","Gonzalo","Martín","Rafael","Lucas","Jorge","Víctor"],
+    "フランス": ["Lucas","Louis","Hugo","Gabriel","Arthur","Jules","Nathan","Léo","Adam","Raphaël",
+             "Enzo","Paul","Tom","Noah","Théo","Ethan","Axel","Sacha","Mathis","Antoine",
+             "Clément","Matteo","Maxime","Samuel","Romain","Simon","Nolan","Benjamin","Alexandre","Julien"],
+    "イタリア": ["Francesco","Alessandro","Lorenzo","Andrea","Matteo","Gabriele","Leonardo","Mattia","Davide","Tommaso",
+             "Giuseppe","Riccardo","Edoardo","Federico","Antonio","Marco","Giovanni","Nicolo","Simone","Samuele",
+             "Alberto","Pietro","Luca","Stefano","Paolo","Filippo","Angelo","Salvatore","Giorgio","Daniele"],
+    "ブラジル": ["Lucas","Gabriel","Pedro","Matheus","Guilherme","Rafael","Bruno","Arthur","João","Gustavo",
+             "Felipe","Enzo","Davi","Matheus","Samuel","Eduardo","Luiz","Leonardo","Henrique","Thiago",
+             "Carlos","Caio","Vinícius","André","Vitor","Marcelo","Luan","Yuri","Ruan","Diego"]
+}
 
-# --- 顔写真URL生成 ---
-def get_player_photo(nationality, name):
-    # 国籍ごとに番号を割り振り（人種が近いイメージになるようにする）
-    base_idx = {
-        "日本": 10,      # アジア系
-        "ブラジル": 20,  # ラテン・褐色系
-        "スペイン": 30,  # ラテン系
-        "フランス": 40,  # ヨーロッパ
-        "ドイツ": 50,    # 白人系
-        "イングランド": 60, # 白人系
-        "イタリア": 70   # ラテン系
-    }[nationality]
-    # hashでバリエーションを持たせる
-    num = base_idx + (abs(hash(name)) % 10)
-    return f"https://randomuser.me/api/portraits/men/{num}.jpg"
-
-# --- ポジション ---
-def get_position():
-    return random.choices(["GK", "DF", "MF", "FW"], weights=[1, 3, 5, 4])[0]
-
-# --- 年齢（ユース:14-18, シニア:19-33） ---
-def get_age(is_youth=False):
-    if is_youth:
-        return random.randint(14, 18)
+# --- 年俸のフォーマット関数（ユーロ表記/自動切り捨て） ---
+def format_money_euro(val):
+    if val >= 1_000_000_000:
+        return f"{val//1_000_000_000}b€"
+    elif val >= 1_000_000:
+        return f"{val//1_000_000}m€"
+    elif val >= 1_000:
+        return f"{val//1_000}k€"
     else:
-        return random.randint(19, 33)
+        return f"{int(val)}€"
 
-# --- 能力値 ---
-def get_abilities():
-    return {k: random.randint(60, 90) for k in ["Spd","Pas","Phy","Sta","Def","Tec","Men","Sht","Pow"]}
+# --- 選手生成例 ---
+def get_unique_name(nationality, used_names):
+    sur = random.choice(surname_pools[nationality])
+    given = random.choice(givenname_pools[nationality])
+    # 日本人のみ「姓 名」それ以外は「名 姓」
+    if nationality == "日本":
+        name = f"{sur} {given}"
+    else:
+        name = f"{given} {sur}"
+    # 同じ名前は弾く
+    if name in used_names:
+        return get_unique_name(nationality, used_names)
+    used_names.add(name)
+    return name
 
-# --- 年俸（能力・年齢も反映／ユーロ単位に変換） ---
-def get_salary(nationality, ability_avg, age):
-    base = names_data[nationality]["salary_base"]
-    euro = int(base * (ability_avg / 70) * (1.1 if age < 23 else 1.0) / 150)
-    return euro
+def generate_players(num=10):
+    players = []
+    used_names = set()
+    for _ in range(num):
+        nationality = random.choice(list(surname_pools.keys()))
+        name = get_unique_name(nationality, used_names)
+        pos = random.choice(["GK","DF","MF","FW"])
+        age = random.randint(17,32)
+        salary = random.randint(100_000,2_000_000)
+        player = {
+            "名前": name,
+            "ポジション": pos,
+            "年齢": age,
+            "国籍": nationality,
+            "年俸": salary,
+            "年俸表示": format_money_euro(salary)
+        }
+        players.append(player)
+    return players
 
-# --- 選手生成まとめ ---
-def generate_player(nationality, used_names, is_youth=False):
-    name = get_unique_name_by_nationality(nationality, used_names)
-    photo = get_player_photo(nationality, name)
-    pos = get_position()
-    age = get_age(is_youth)
-    abilities = get_abilities()
-    ability_avg = sum(abilities.values()) / len(abilities)
-    salary = get_salary(nationality, ability_avg, age)
-    return {
-        "名前": name,
-        "国籍": nationality,
-        "ポジション": pos,
-        "年齢": age,
-        "画像URL": photo,
-        **abilities,
-        "総合": int(ability_avg),
-        "年俸": salary,
-        "契約年数": random.randint(1, 3),
-    }
-
-# --- 使用例（サンプル10名生成） ---
 if __name__ == "__main__":
-    used = set()
-    for country in names_data.keys():
-        for i in range(2):  # 各国2名ずつ
-            p = generate_player(country, used)
-            used.add(p["名前"])
-            print(p)
+    # テスト出力
+    plist = generate_players(30)
+    for p in plist:
+        print(f"{p['名前']}（{p['国籍']}）: {p['ポジション']} / {p['年齢']}歳 / {p['年俸表示']}")
