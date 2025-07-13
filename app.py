@@ -6,24 +6,22 @@ import random
 
 st.set_page_config(page_title="Soccer Club Management Sim", layout="wide")
 
-# --- UI/デザイン ---
+# --- カスタムCSS ---
 st.markdown("""
 <style>
 body, .stApp { font-family: 'IPAexGothic','Meiryo',sans-serif; }
 .stApp { background: linear-gradient(120deg, #192841 0%, #24345b 100%) !important; color: #eaf6ff; }
 h1,h2,h3,h4,h5,h6, .stTabs label, .stTabs span { color: #fff !important; }
-.stTabs [data-baseweb="tab"] > button[aria-selected="true"] { color: #fff !important; background: #286edb !important; }
-.stTabs [data-baseweb="tab"] > button { color: #fff !important; background: #2b3659 !important; }
+.stTabs [data-baseweb="tab"] > button[aria-selected="true"], .stTabs [data-baseweb="tab"] > button { color: #fff !important; background: #344a69 !important; }
 .stButton>button, .stDownloadButton>button { background: linear-gradient(90deg, #ffd800 20%, #17b6ff 100%); color: #192841 !important; font-weight:bold; border-radius: 13px; font-size:1.02em; margin:6px 0 7px 0; box-shadow:0 0 8px #33e0ff33; }
 .stButton>button:active { background: #ffdf4d !important; }
-.stAlert, .stInfo, .stWarning { border-radius:10px !important; font-size:1.08em !important; }
 .red-message { color:#ff3a3a; font-weight:bold; font-size:1.08em; padding:7px 0 2px 0;}
 .player-card {
   background: #f9fafd;
   color: #132346;
   border-radius: 17px;
   padding: 13px 12px 7px 12px;
-  margin: 9px 3vw 16px 3vw;
+  margin: 9px 2vw 16px 2vw;
   box-shadow: 0 0 15px #17b6ff44;
   min-width: 150px; max-width: 170px; font-size:1.01em;
   display: flex; flex-direction: column; align-items: center;
@@ -31,28 +29,28 @@ h1,h2,h3,h4,h5,h6, .stTabs label, .stTabs span { color: #fff !important; }
 }
 .player-card.selected {border: 2.5px solid #f5e353; box-shadow: 0 0 20px #ffe63e77;}
 .player-card img { border-radius:50%; margin-bottom:7px; border:2px solid #2789d7; background:#fff; object-fit:cover; }
-.mobile-table {overflow-x:auto; white-space:nowrap;}
-.mobile-table th, .mobile-table td {
-  padding: 4px 9px; font-size: 15px; border-bottom: 1.3px solid #1c2437;
-}
-.table-highlight th, .table-highlight td {
-  background: #192844 !important; color: #ffe45a !important; border-bottom: 1.5px solid #24335d !important;
-}
 .budget-info { background:#ffeeaa; color:#253246; padding:7px 17px; border-radius:10px; font-weight:bold; display:inline-block; font-size:1.11em;}
 .position-label { color: #fff !important; background:#1b4f83; border-radius:7px; padding:1px 8px; font-weight:bold; margin:0 2px;}
+.stTabs [data-baseweb="tab-list"] { background: #fff !important; }
+.stTabs [data-baseweb="tab"] > button { color: #222 !important; background: #fff !important; border-radius: 7px 7px 0 0 !important; }
+.stTabs [data-baseweb="tab"] > button[aria-selected="true"] { background: #ffe94f !important; color: #1b3266 !important; }
 </style>
 """, unsafe_allow_html=True)
 
 st.title("Soccer Club Management Sim")
 
-# --- 顔画像リスト（欧米顔） ---
+# 8クラブ（あなた＋AI7）
+PLAYER_TEAM = "Striver FC"
+AI_CLUBS = ["Blue Wolves", "Falcons", "Red Stars", "Vortis", "United FC", "Oceans", "Tigers", "Skybirds"]
+ALL_TEAMS = [PLAYER_TEAM] + AI_CLUBS[1:]
+
+# 顔画像
 euro_faces = [
     f"https://randomuser.me/api/portraits/men/{i}.jpg" for i in [10,11,13,14,15,16,18,19,20,21,23,24,25,26,28,29,30,31,33,34,35,36,38,39,40,41,43,44,45,46]
 ]
-def get_player_img(nationality, idx):
-    return euro_faces[idx % len(euro_faces)]
+def get_player_img(nat, idx): return euro_faces[idx % len(euro_faces)]
 
-# --- 国籍・姓/名リスト（各30種） ---
+# 英語名・国籍リスト例（30姓/名・欧州+Brazil/Netherlands等）
 surname_pools = {
     "England": ["Smith","Jones","Williams","Taylor","Brown","Davies","Evans","Wilson","Johnson","Roberts","Thompson","Wright","Walker","White","Green","Hall","Wood","Martin","Harris","Cooper","King","Clark","Baker","Turner","Carter","Mitchell","Scott","Phillips","Adams","Campbell"],
     "Germany": ["Müller","Schmidt","Schneider","Fischer","Weber","Meyer","Wagner","Becker","Hoffmann","Schulz","Keller","Richter","Koch","Bauer","Wolf","Neumann","Schwarz","Krüger","Zimmermann","Braun","Hartmann","Lange","Schmitt","Werner","Krause","Meier","Lehmann","Schmid","Schulze","Maier"],
@@ -95,7 +93,6 @@ def format_money(val):
 labels = ['Spd','Pas','Phy','Sta','Def','Tec','Men','Sht','Pow']
 labels_full = {'Spd':'Speed','Pas':'Pass','Phy':'Physical','Sta':'Stamina','Def':'Defense','Tec':'Technique','Men':'Mental','Sht':'Shoot','Pow':'Power'}
 
-# --- 初期データ生成 ---
 def generate_players(nsenior=30, nyouth=20):
     players = []
     used_names = set()
@@ -153,12 +150,14 @@ if "players_df" not in st.session_state:
     st.session_state.players_df = generate_players()
 if "budget" not in st.session_state:
     st.session_state.budget = 1_000_000
+if "detail_idx" not in st.session_state:
+    st.session_state.detail_idx = None
 
 df = st.session_state.players_df
 df_senior = df[df["ユース"]==0].reset_index(drop=True)
 df_youth = df[df["ユース"]==1].reset_index(drop=True)
 
-# --- メインタブ ---
+# --- タブ ---
 tabs = st.tabs(["Senior", "Youth", "Match", "Scout", "Standings", "Save"])
 
 # --- Senior ---
@@ -188,6 +187,23 @@ with tabs[0]:
                 <br><span class='position-label'>{row['ポジション']}</span> / {row['年齢']} / {row['国籍']}
                 <br><span style='font-size:0.95em'>契約:{row['契約年数']}｜年俸:{format_money(row['年俸'])}</span>
                 </div>""", unsafe_allow_html=True)
+            if st.button("詳細", key=f"senior_detail_{idx}"):
+                st.session_state.detail_idx = ("senior", idx)
+            # 選手詳細＋レーダーチャート
+            if st.session_state.get("detail_idx") == ("senior", idx):
+                vals = [row[l] for l in labels]
+                angles = np.linspace(0, 2 * np.pi, len(labels), endpoint=False)
+                vals = np.concatenate((vals, [vals[0]]))
+                angles = np.concatenate((angles, [angles[0]]))
+                fig = plt.figure(figsize=(2.6,2.6))
+                ax = fig.add_subplot(111, polar=True)
+                ax.plot(angles, vals, linewidth=2)
+                ax.fill(angles, vals, alpha=0.3)
+                ax.set_thetagrids(np.degrees(angles), labels)
+                ax.set_ylim(0, 100)
+                plt.title(row["名前"], size=12)
+                st.pyplot(fig, transparent=True)
+                st.write({k: row[k] for k in labels})
 
 # --- Youth ---
 with tabs[1]:
@@ -219,12 +235,30 @@ with tabs[1]:
                     <br><span class='position-label'>{row['ポジション']}</span> / {row['年齢']} / {row['国籍']}
                     <br><span style='font-size:0.95em'>契約:{row['契約年数']}｜年俸:{format_money(row['年俸'])}</span>
                     </div>""", unsafe_allow_html=True)
+                if st.button("詳細", key=f"youth_detail_{idx}"):
+                    st.session_state.detail_idx = ("youth", idx)
+                if st.session_state.get("detail_idx") == ("youth", idx):
+                    vals = [row[l] for l in labels]
+                    angles = np.linspace(0, 2 * np.pi, len(labels), endpoint=False)
+                    vals = np.concatenate((vals, [vals[0]]))
+                    angles = np.concatenate((angles, [angles[0]]))
+                    fig = plt.figure(figsize=(2.6,2.6))
+                    ax = fig.add_subplot(111, polar=True)
+                    ax.plot(angles, vals, linewidth=2)
+                    ax.fill(angles, vals, alpha=0.3)
+                    ax.set_thetagrids(np.degrees(angles), labels)
+                    ax.set_ylim(0, 100)
+                    plt.title(row["名前"], size=12)
+                    st.pyplot(fig, transparent=True)
+                    st.write({k: row[k] for k in labels})
 
-# --- Match ---
+# --- Matchタブ ---
 with tabs[2]:
     st.subheader("Match Simulation")
-    auto_starters = df_senior.sort_values(labels, ascending=False).head(11)["名前"].tolist()
-    starters = st.multiselect("Starting XI", df_senior["名前"].tolist(), default=auto_starters)
+    # オートスタメン
+    if st.button("オートスタメン"):
+        st.session_state.starters = df_senior.sort_values(labels, ascending=False).head(11)["名前"].tolist()
+    starters = st.multiselect("Starting XI", df_senior["名前"].tolist(), default=st.session_state.get("starters", []))
     if len(starters) != 11:
         st.markdown("<div class='red-message'>Please select exactly 11 players.</div>", unsafe_allow_html=True)
     else:
@@ -278,4 +312,4 @@ with tabs[5]:
     if st.button("Save (Local Only)"):
         st.success("Saved!")
 
-st.caption("All features: English names, Euro faces, Netherlands added, no Japan, all improvements, full integration.")
+st.caption("8 teams / detail popup / auto starting XI / white tabs / all full features.")
