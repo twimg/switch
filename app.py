@@ -48,7 +48,7 @@ h1,h2,h3,h4,h5,h6 { color:#fff!important;}
 .mobile-scroll .player-card { display:inline-block; vertical-align:top;}
 .stage-label { background:#222b3c88; color:#fff; padding:6px 12px; border-radius:8px; display:inline-block; margin-bottom:8px;}
 .red-message { color:#f55!important; font-weight:bold;}
-.stDataFrame {background:transparent!important; color:#fff!important;}
+.stDataFrame {background:rgba(20,30,50,0.7)!important; color:#fff!important;}
 </style>
 """, unsafe_allow_html=True)
 
@@ -61,7 +61,7 @@ CLUBS = [
 ]
 MY_CLUB = CLUBS[0]
 
-# --- 顔画像リスト（ご自由に差し替え可） ---
+# --- 顔画像リスト（任意差替可） ---
 face_imgs = [f"https://randomuser.me/api/portraits/men/{i}.jpg" for i in range(10,50)]
 def get_img(i): return face_imgs[i % len(face_imgs)]
 
@@ -89,7 +89,7 @@ labels = ['Spd','Pas','Phy','Sta','Def','Tec','Men','Sht','Pow']
 labels_full = {'Spd':'Speed','Pas':'Pass','Phy':'Physical','Sta':'Stamina',
                'Def':'Defense','Tec':'Technique','Men':'Mental','Sht':'Shoot','Pow':'Power'}
 
-# --- データ生成 ---
+# --- データ生成関数 ---
 def gen(n, youth=False):
     used = set()
     rows=[]
@@ -112,14 +112,25 @@ def gen(n, youth=False):
 
 # --- セッション初期化 ---
 if "senior" not in st.session_state:
-    st.session_state.senior   = gen(30, youth=False)
-    st.session_state.youth    = gen(20, youth=True)
-    st.session_state.stand    = pd.DataFrame({"Club":CLUBS,"W":0,"D":0,"L":0,"Pts":0})
+    st.session_state.senior = gen(30, youth=False)
+if "youth" not in st.session_state:
+    st.session_state.youth  = gen(20, youth=True)
+if "stand" not in st.session_state:
+    st.session_state.stand  = pd.DataFrame({"Club":CLUBS,"W":0,"D":0,"L":0,"Pts":0})
+if "opponent" not in st.session_state:
     st.session_state.opponent = random.choice([c for c in CLUBS if c!=MY_CLUB])
 if "detail" not in st.session_state:
     st.session_state.detail = None
 if "starters" not in st.session_state:
     st.session_state.starters = []
+if "refresh_s" not in st.session_state:
+    st.session_state.refresh_s = 0
+if "refresh_y" not in st.session_state:
+    st.session_state.refresh_y = 0
+if "scout_senior_list" not in st.session_state:
+    st.session_state.scout_senior_list = pd.DataFrame()
+if "scout_youth_list" not in st.session_state:
+    st.session_state.scout_youth_list = pd.DataFrame()
 
 # --- タブ ---
 tabs = st.tabs(["Senior","Youth","Match","Scout","Standings","Save"])
@@ -149,13 +160,14 @@ with tabs[0]:
               <img src="{get_img(idx)}"><b>{row['Name']}</b><br>
               <small>{row['Pos']}｜{row['Age']}｜{fmt_money(row['Salary'])}</small><br>
               <span style="color:#27e3b9;">OVR:{row['OVR']}</span><br>
-              <button class="detail-btn" onclick="window.streamlitDetail('{key}')">詳細</button>
             </div>
         """, unsafe_allow_html=True)
+        if st.button("Detail", key=key):
+            st.session_state.detail = key
         if st.session_state.detail==key:
             abil=[row[l] for l in labels]+[row[labels[0]]]
             ang=np.linspace(0,2*np.pi,len(labels)+1)
-            fig,ax=plt.subplots(subplot_kw=dict(polar=True),figsize=(2.2,2.2))
+            fig,ax=plt.subplots(subplot_kw=dict(polar=True),figsize=(2,2))
             ax.plot(ang,abil,linewidth=2); ax.fill(ang,abil,alpha=0.3)
             ax.set_xticks(ang[:-1]); ax.set_xticklabels([labels_full[l] for l in labels],color="#fff")
             ax.set_yticklabels([]); ax.grid(color="#fff",alpha=0.2)
@@ -199,13 +211,14 @@ with tabs[1]:
                   <img src="{get_img(idx+100)}"><b>{row['Name']}</b><br>
                   <small>{row['Pos']}｜{row['Age']}｜{fmt_money(row['Salary'])}</small><br>
                   <span style="color:#27e3b9;">OVR:{row['OVR']}</span><br>
-                  <button class="detail-btn" onclick="window.streamlitDetail('{key}')">詳細</button>
                 </div>
             """, unsafe_allow_html=True)
+            if st.button("Detail", key=key):
+                st.session_state.detail = key
             if st.session_state.detail==key:
                 abil=[row[l] for l in labels]+[row[labels[0]]]
                 ang=np.linspace(0,2*np.pi,len(labels)+1)
-                fig,ax=plt.subplots(subplot_kw=dict(polar=True),figsize=(2.2,2.2))
+                fig,ax=plt.subplots(subplot_kw=dict(polar=True),figsize=(2,2))
                 ax.plot(ang,abil,linewidth=2); ax.fill(ang,abil,alpha=0.3)
                 ax.set_xticks(ang[:-1]); ax.set_xticklabels([labels_full[l] for l in labels],color="#fff")
                 ax.set_yticklabels([]); ax.grid(color="#fff",alpha=0.2)
@@ -226,84 +239,124 @@ with tabs[1]:
 with tabs[2]:
     st.markdown('<div class="stage-label">Match Simulation ‒ Week 1</div>', unsafe_allow_html=True)
     opp=st.session_state.opponent
-    c1,c2=st.columns(2)
-    c1.write(f"**Your Club:** {MY_CLUB}")
-    c2.write(f"**Opponent:** {opp}")
+    st.write(f"**Your Club:** {MY_CLUB}  vs  **Opponent:** {opp}")
     formation=st.selectbox("Formation",["4-4-2","4-3-3","3-5-2"])
-    # Auto XI
     if st.button("Auto Starting XI"):
-        top11=st.session_state.senior.nlargest(11,"OVR")["Name"].tolist()
-        st.session_state.starters=top11
-    # Manual XI
-    starters=st.multiselect("Starting XI",st.session_state.senior["Name"].tolist(),
-                             default=st.session_state.starters)
-    # Kickoff
+        st.session_state.starters = st.session_state.senior.nlargest(11,"OVR")["Name"].tolist()
+        # フォーメーション図
+        coords = {
+            "4-4-2":([5],[2,4,6,8],[2,4,6,8],[3,7]),
+            "4-3-3":([5],[2,4,6,8],[3.5,5,6.5],[2,5,8]),
+            "3-5-2":([5],[3.5,5,6.5],[2,4,6,8],[3,7])
+        }
+        gk,def4,mid,fw = coords[formation]
+        fig,ax = plt.subplots(figsize=(3,5))
+        ax.set_xlim(0,10); ax.set_ylim(0,16); ax.axis('off')
+        # ライン
+        ax.plot([0,10],[8,8],color='white',linewidth=1)
+        names=st.session_state.starters
+        # 配置
+        ax.text(5,1,names[0],ha='center',color='yellow')
+        idx=1
+        for x in def4:
+            ax.text(x,4,names[idx],ha='center',color='white'); idx+=1
+        for x in mid:
+            ax.text(x,8,names[idx],ha='center',color='white'); idx+=1
+        for x in fw:
+            ax.text(x,12,names[idx],ha='center',color='white'); idx+=1
+        st.pyplot(fig)
+    # 手動
+    starters = st.multiselect("Starting XI",st.session_state.senior["Name"],default=st.session_state.starters)
     if st.button("Kickoff!"):
-        # 他チーム裏試合
+        # 裏試合
         others=[c for c in CLUBS if c not in (MY_CLUB,opp)]
-        random.shuffle(others)
         dfst=st.session_state.stand
         for i in range(0,len(others),2):
             a,b=others[i],others[i+1]
-            sa,sb=random.randint(60,90),random.randint(60,90)
-            ga,gb=max(0,sa//30+random.randint(-1,2)),max(0,sb//30+random.randint(-1,2))
-            if ga>gb: dfst.loc[dfst.Club==a,["W","Pts"]] += [1,3]; dfst.loc[dfst.Club==b,"L"]+=1
-            elif ga<gb: dfst.loc[dfst.Club==b,["W","Pts"]] += [1,3]; dfst.loc[dfst.Club==a,"L"]+=1
+            ga,gb = random.randint(0,3),random.randint(0,3)
+            if ga>gb: dfst.loc[dfst.Club==a,["W","Pts"]]+= [1,3]; dfst.loc[dfst.Club==b,"L"]+=1
+            elif ga<gb: dfst.loc[dfst.Club==b,["W","Pts"]]+= [1,3]; dfst.loc[dfst.Club==a,"L"]+=1
             else: dfst.loc[dfst.Club.isin([a,b]),"D"]+=1; dfst.loc[dfst.Club==a,"Pts"]+=1; dfst.loc[dfst.Club==b,"Pts"]+=1
-        # 自チーム試合
-        ours=st.session_state.senior[st.session_state.senior["Name"].isin(starters)]
-        atk=ours["OVR"].mean() if not ours.empty else st.session_state.senior["OVR"].mean()
-        opp_atk=random.uniform(60,90)
-        g1,g2=max(0,int(np.random.normal((atk-60)/8,1))),max(0,int(np.random.normal((opp_atk-60)/8,1)))
-        res="Win" if g1>g2 else "Lose" if g1<g2 else "Draw"
-        mvp=ours.nlargest(1,"OVR")["Name"].iloc[0] if not ours.empty else ""
-        # standings更新
+        # 自チーム
+        ours = st.session_state.senior[st.session_state.senior["Name"].isin(starters)]
+        atk = ours["OVR"].mean() if not ours.empty else 75
+        oppatk = random.uniform(60,90)
+        g1 = max(0,int(np.random.normal((atk-60)/8,1)))
+        g2 = max(0,int(np.random.normal((oppatk-60)/8,1)))
+        res = "Win" if g1>g2 else "Lose" if g1<g2 else "Draw"
+        mvp = ours.nlargest(1,"OVR")["Name"].iloc[0] if not ours.empty else ""
         mi,oi=MY_CLUB,opp
         if res=="Win": dfst.loc[dfst.Club==mi,["W","Pts"]]+= [1,3]; dfst.loc[dfst.Club==oi,"L"]+=1
         elif res=="Lose": dfst.loc[dfst.Club==oi,["W","Pts"]]+= [1,3]; dfst.loc[dfst.Club==mi,"L"]+=1
         else: dfst.loc[dfst.Club.isin([mi,oi]),"D"]+=1; dfst.loc[dfst.Club==mi,"Pts"]+=1; dfst.loc[dfst.Club==oi,"Pts"]+=1
-        st.session_state.stand=dfst.sort_values("Pts",ascending=False).reset_index(drop=True)
-        # 結果表示
-        st.markdown(f"<div style='background:#27e3b9;color:#fff;padding:8px;border-radius:8px;'>"
-                    f"**Result: {res} ({g1}-{g2})**</div>", unsafe_allow_html=True)
-        st.markdown(f"<div style='background:#314265;color:#fff;padding:6px;border-radius:6px;'>"
-                    f"Goals: You {g1} ‒ Opp {g2} | MVP: {mvp}</div>", unsafe_allow_html=True)
+        st.session_state.stand = dfst.sort_values("Pts",ascending=False).reset_index(drop=True)
+        st.markdown(f"<div style='background:#27e3b9;color:#fff;padding:8px;border-radius:8px;'>**{res} ({g1}-{g2})**</div>", unsafe_allow_html=True)
+        st.markdown(f"<div style='background:#314265;color:#fff;padding:6px;border-radius:6px;'>Goals: You {g1} ‒ Opp {g2} | MVP: {mvp}</div>", unsafe_allow_html=True)
 
 # ===== 4. Scout =====
 with tabs[3]:
-    st.markdown('<div class="stage-label">Scout Players</div>', unsafe_allow_html=True)
-    if st.button("Scout Senior"):
-        new=gen(random.randint(5,10), youth=False)
-        st.session_state.senior=pd.concat([st.session_state.senior,pd.DataFrame(new)],ignore_index=True)
-        st.success("Scouted new senior players")
-    if st.button("Scout Youth"):
-        new=gen(random.randint(5,10), youth=True)
-        st.session_state.youth =pd.concat([st.session_state.youth,pd.DataFrame(new)],ignore_index=True)
-        st.success("Scouted new youth players")
-    # 追加後の一覧をカードで表示
-    st.markdown("#### New Senior & Youth")
-    st.markdown('<div class="mobile-scroll">', unsafe_allow_html=True)
-    combined=pd.concat([
-        st.session_state.senior.assign(Type="Senior").tail(10),
-        st.session_state.youth.assign(Type="Youth").tail(10)
-    ],ignore_index=True)
-    for idx,row in combined.iterrows():
-        st.markdown(f"""
-          <div class="player-card">
-            <img src="{get_img(idx+200)}"><b>{row['Name']}</b><br>
-            <small>{row['Type']}｜{row['Pos']}｜{row['Age']}</small><br>
-            <span style="color:#27e3b9;">OVR:{row['OVR']}</span>
-          </div>
-        """, unsafe_allow_html=True)
-    st.markdown('</div>', unsafe_allow_html=True)
+    st.markdown('<div class="stage-label">Scout Players (Max 3 each)</div>', unsafe_allow_html=True)
+    cols = st.columns(2)
+    if cols[0].button(f"Refresh Senior ({st.session_state.refresh_s}/3)"):
+        if st.session_state.refresh_s < 3:
+            st.session_state.scout_senior_list = gen(5, youth=False)
+            st.session_state.refresh_s += 1
+        else:
+            st.warning("Senior scout limit reached")
+    if cols[1].button(f"Refresh Youth  ({st.session_state.refresh_y}/3)"):
+        if st.session_state.refresh_y < 3:
+            st.session_state.scout_youth_list = gen(5, youth=True)
+            st.session_state.refresh_y += 1
+        else:
+            st.warning("Youth scout limit reached")
+    # 表示
+    for df_sc, tag in [(st.session_state.scout_senior_list,"Senior"),(st.session_state.scout_youth_list,"Youth")]:
+        if not df_sc.empty:
+            st.markdown(f"#### {tag} Candidates")
+            st.markdown('<div class="mobile-scroll">', unsafe_allow_html=True)
+            for idx,row in df_sc.iterrows():
+                key=f"sc_{tag}_{idx}"
+                st.markdown(f"""
+                    <div class="player-card">
+                      <img src="{get_img(idx+300)}"><b>{row['Name']}</b><br>
+                      <small>{tag}｜{row['Pos']}｜{row['Age']}</small><br>
+                      <span style="color:#27e3b9;">OVR:{row['OVR']}</span><br>
+                      <button class="detail-btn" onclick="window.streamlitDetail('{key}')">Detail</button>
+                    </div>
+                """, unsafe_allow_html=True)
+                if st.button("Join", key=key):
+                    if tag=="Senior":
+                        st.session_state.senior = pd.concat([st.session_state.senior,df_sc.iloc[[idx]]],ignore_index=True)
+                    else:
+                        st.session_state.youth  = pd.concat([st.session_state.youth, df_sc.iloc[[idx]]],ignore_index=True)
+                    st.success(f"{tag} player signed!")
+                if st.session_state.detail==key:
+                    abil=[row[l] for l in labels]+[row[labels[0]]]
+                    ang=np.linspace(0,2*np.pi,len(labels)+1)
+                    fig,ax=plt.subplots(subplot_kw=dict(polar=True),figsize=(2,2))
+                    ax.plot(ang,abil,linewidth=2); ax.fill(ang,abil,alpha=0.3)
+                    ax.set_xticks(ang[:-1]); ax.set_xticklabels([labels_full[l] for l in labels],color="#fff")
+                    ax.set_yticklabels([]); ax.grid(color="#fff",alpha=0.2)
+                    fig.patch.set_alpha(0); ax.patch.set_alpha(0)
+                    st.pyplot(fig)
+                    stats_html="".join([
+                        f"<span style='color:{'#20e660' if row[l]>=90 else '#ffe600' if row[l]>=75 else '#1aacef'}'>{l}:{row[l]}</span><br>"
+                        for l in labels
+                    ])
+                    st.markdown(f"""
+                        <div class="detail-popup">
+                          <b>{row['Name']} ({row['Pos']})</b><br>{stats_html}
+                        </div>
+                    """, unsafe_allow_html=True)
+            st.markdown('</div>', unsafe_allow_html=True)
 
 # ===== 5. Standings =====
 with tabs[4]:
     st.markdown('<div class="stage-label">Standings</div>', unsafe_allow_html=True)
     dfst=st.session_state.stand
-    styled=dfst.style.set_properties(**{"background-color":"transparent","color":"white"})\
-                    .set_table_styles([{"selector":"thead th","props":[("color","white"),("background-color","transparent")]}])
-    st.dataframe(styled, height=350)
+    styled=dfst.style.set_properties(**{"background-color":"rgba(20,30,50,0.8)","color":"white"})\
+                    .set_table_styles([{"selector":"thead th","props":[("color","white"),("background-color","rgba(20,30,50,0.9)")]}])
+    st.dataframe(styled, height=300)
 
 # ===== 6. Save =====
 with tabs[5]:
@@ -311,4 +364,4 @@ with tabs[5]:
     if st.button("Save Data"): st.success("Data saved!")
     if st.button("Load Data"): st.success("Data loaded!")
 
-st.caption("2025年最新版：全要素統合・モバイル対応・裏試合・自動選出・詳細改良版")
+st.caption("2025年最新版：Scout制限3回／詳細即時表示／Formation図付AutoXI 全要素統合版")
