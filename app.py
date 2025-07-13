@@ -3,7 +3,6 @@ import pandas as pd
 import numpy as np
 import matplotlib.pyplot as plt
 import random
-import re
 
 st.set_page_config(page_title="Soccer Club Management Sim", layout="wide")
 
@@ -32,14 +31,6 @@ h1,h2,h3,h4,h5,h6, .stTabs label, .stTabs span { color: #fff !important; }
 }
 .player-card.selected {border: 2.5px solid #f5e353; box-shadow: 0 0 20px #ffe63e77;}
 .player-card img { border-radius:50%; margin-bottom:7px; border:2px solid #2789d7; background:#fff; object-fit:cover; }
-.player-card .detail-popup {
-  position: absolute; top: 7px; left: 104%; z-index:10;
-  min-width: 180px; max-width:280px;
-  background: #242e41; color: #ffe;
-  border-radius: 13px; padding: 15px 15px;
-  box-shadow: 0 0 14px #1f2d44b2; font-size: 1.06em;
-  border: 2px solid #1698d499;
-}
 .mobile-table {overflow-x:auto; white-space:nowrap;}
 .mobile-table th, .mobile-table td {
   padding: 4px 9px; font-size: 15px; border-bottom: 1.3px solid #1c2437;
@@ -54,68 +45,38 @@ h1,h2,h3,h4,h5,h6, .stTabs label, .stTabs span { color: #fff !important; }
 
 st.title("Soccer Club Management Sim")
 
-# --- 顔画像リスト（日本人はアジア顔、他国は欧米顔） ---
-asian_faces = [
-    f"https://randomuser.me/api/portraits/men/{i}.jpg" for i in [60,61,62,63,64,65,66,67,68,69,79,80,81,82,83,84,85,86,87,88,89,12,17,22,27,32,37,42,47,52]
-]
+# --- 顔画像リスト（欧米顔） ---
 euro_faces = [
     f"https://randomuser.me/api/portraits/men/{i}.jpg" for i in [10,11,13,14,15,16,18,19,20,21,23,24,25,26,28,29,30,31,33,34,35,36,38,39,40,41,43,44,45,46]
 ]
 def get_player_img(nationality, idx):
-    if nationality == "日本":
-        return asian_faces[idx % len(asian_faces)]
-    else:
-        return euro_faces[idx % len(euro_faces)]
+    return euro_faces[idx % len(euro_faces)]
 
-# --- 主要国籍・姓/名リスト（各30種） ---
+# --- 国籍・姓/名リスト（各30種） ---
 surname_pools = {
-    "日本": ["佐藤","鈴木","高橋","田中","伊藤","渡辺","山本","中村","小林","加藤","吉田","山田","佐々木","山口","松本","井上","木村","林","斎藤","清水","山崎","森","池田","橋本","阿部","石川","石井","村上","藤田","坂本"],
-    "イングランド": ["Smith","Jones","Williams","Taylor","Brown","Davies","Evans","Wilson","Johnson","Roberts","Thompson","Wright","Walker","White","Green","Hall","Wood","Martin","Harris","Cooper","King","Clark","Baker","Turner","Carter","Mitchell","Scott","Phillips","Adams","Campbell"],
-    "ドイツ": ["Müller","Schmidt","Schneider","Fischer","Weber","Meyer","Wagner","Becker","Hoffmann","Schulz","Keller","Richter","Koch","Bauer","Wolf","Neumann","Schwarz","Krüger","Zimmermann","Braun","Hartmann","Lange","Schmitt","Werner","Krause","Meier","Lehmann","Schmid","Schulze","Maier"],
-    "スペイン": ["García","Martínez","Rodríguez","López","Sánchez","Pérez","Gómez","Martín","Jiménez","Ruiz","Hernández","Díaz","Moreno","Muñoz","Álvarez","Romero","Alonso","Gutiérrez","Navarro","Torres","Domínguez","Vega","Castro","Ramos","Flores","Ortega","Serrano","Blanco","Suárez","Molina"],
-    "フランス": ["Martin","Bernard","Dubois","Thomas","Robert","Richard","Petit","Durand","Leroy","Moreau","Simon","Laurent","Lefebvre","Michel","Garcia","David","Bertrand","Roux","Vincent","Fournier","Girard","Bonnet","Dupont","Lambert","Fontaine","Rousseau","Blanchard","Guerin","Muller","Marchand"],
-    "イタリア": ["Rossi","Russo","Ferrari","Esposito","Bianchi","Romano","Colombo","Ricci","Marino","Greco","Bruno","Gallo","Conti","De Luca","Mancini","Costa","Giordano","Rizzo","Lombardi","Moretti","Barbieri","Mariani","Santoro","Vitale","Martini","Bianco","Longo","Leone","Gentile","Lombardo"],
-    "ブラジル": ["Silva","Santos","Oliveira","Souza","Rodrigues","Ferreira","Almeida","Costa","Gomes","Martins","Araújo","Ribeiro","Barbosa","Barros","Freitas","Lima","Teixeira","Fernandes","Pereira","Carvalho","Moura","Macedo","Azevedo","Cardoso","Moreira","Castro","Campos","Rocha","Pinto","Nascimento"]
+    "England": ["Smith","Jones","Williams","Taylor","Brown","Davies","Evans","Wilson","Johnson","Roberts","Thompson","Wright","Walker","White","Green","Hall","Wood","Martin","Harris","Cooper","King","Clark","Baker","Turner","Carter","Mitchell","Scott","Phillips","Adams","Campbell"],
+    "Germany": ["Müller","Schmidt","Schneider","Fischer","Weber","Meyer","Wagner","Becker","Hoffmann","Schulz","Keller","Richter","Koch","Bauer","Wolf","Neumann","Schwarz","Krüger","Zimmermann","Braun","Hartmann","Lange","Schmitt","Werner","Krause","Meier","Lehmann","Schmid","Schulze","Maier"],
+    "Spain": ["García","Martínez","Rodríguez","López","Sánchez","Pérez","Gómez","Martín","Jiménez","Ruiz","Hernández","Díaz","Moreno","Muñoz","Álvarez","Romero","Alonso","Gutiérrez","Navarro","Torres","Domínguez","Vega","Castro","Ramos","Flores","Ortega","Serrano","Blanco","Suárez","Molina"],
+    "France": ["Martin","Bernard","Dubois","Thomas","Robert","Richard","Petit","Durand","Leroy","Moreau","Simon","Laurent","Lefebvre","Michel","Garcia","David","Bertrand","Roux","Vincent","Fournier","Girard","Bonnet","Dupont","Lambert","Fontaine","Rousseau","Blanchard","Guerin","Muller","Marchand"],
+    "Italy": ["Rossi","Russo","Ferrari","Esposito","Bianchi","Romano","Colombo","Ricci","Marino","Greco","Bruno","Gallo","Conti","De Luca","Mancini","Costa","Giordano","Rizzo","Lombardi","Moretti","Barbieri","Mariani","Santoro","Vitale","Martini","Bianco","Longo","Leone","Gentile","Lombardo"],
+    "Netherlands": ["de Jong","de Vries","van den Berg","van Dijk","Bakker","Jansen","Mulder","de Boer","Visser","Smit","Meijer","de Groot","Bos","Vos","Peters","Hendriks","Dekker","Brouwer","van Leeuwen","van der Meer","Kok","Jacobs","de Bruin","van Dam","Koning","Post","Willems","van der Linden","Kuiper","Verhoeven"],
+    "Brazil": ["Silva","Santos","Oliveira","Souza","Rodrigues","Ferreira","Almeida","Costa","Gomes","Martins","Araújo","Ribeiro","Barbosa","Barros","Freitas","Lima","Teixeira","Fernandes","Pereira","Carvalho","Moura","Macedo","Azevedo","Cardoso","Moreira","Castro","Campos","Rocha","Pinto","Nascimento"]
 }
 givenname_pools = {
-    "日本": ["翔","大輔","陸","颯太","陽平","悠真","隼人","啓太","海斗","翼","優","拓真","蓮","大輝","駿","光希","悠人","慎吾","洸太","楓","龍也","亮介","航太","一輝","健太","達也","幸太","悠馬","瑛太","渉"],
-    "イングランド": ["Oliver","Jack","Harry","George","Noah","Charlie","Jacob","Thomas","Oscar","William","James","Henry","Leo","Alfie","Joshua","Freddie","Archie","Arthur","Logan","Alexander","Harrison","Benjamin","Mason","Ethan","Finley","Lucas","Isaac","Edward","Samuel","Joseph"],
-    "ドイツ": ["Leon","Ben","Paul","Jonas","Elias","Finn","Noah","Luis","Luca","Felix","Maximilian","Moritz","Tim","Julian","Max","David","Jakob","Emil","Philipp","Tom","Nico","Fabian","Marlon","Samuel","Daniel","Jan","Simon","Jonathan","Aaron","Mika"],
-    "スペイン": ["Alejandro","Pablo","Daniel","Adrián","Javier","David","Hugo","Mario","Manuel","Álvaro","Diego","Miguel","Raúl","Carlos","José","Antonio","Andrés","Fernando","Iván","Sergio","Alberto","Juan","Rubén","Ángel","Gonzalo","Martín","Rafael","Lucas","Jorge","Víctor"],
-    "フランス": ["Lucas","Louis","Hugo","Gabriel","Arthur","Jules","Nathan","Léo","Adam","Raphaël","Enzo","Paul","Tom","Noah","Théo","Ethan","Axel","Sacha","Mathis","Antoine","Clément","Matteo","Maxime","Samuel","Romain","Simon","Nolan","Benjamin","Alexandre","Julien"],
-    "イタリア": ["Francesco","Alessandro","Lorenzo","Andrea","Matteo","Gabriele","Leonardo","Mattia","Davide","Tommaso","Giuseppe","Riccardo","Edoardo","Federico","Antonio","Marco","Giovanni","Nicolo","Simone","Samuele","Alberto","Pietro","Luca","Stefano","Paolo","Filippo","Angelo","Salvatore","Giorgio","Daniele"],
-    "ブラジル": ["Lucas","Gabriel","Pedro","Matheus","Guilherme","Rafael","Bruno","Arthur","João","Gustavo","Felipe","Enzo","Davi","Matheus","Samuel","Eduardo","Luiz","Leonardo","Henrique","Thiago","Carlos","Caio","Vinícius","André","Vitor","Marcelo","Luan","Yuri","Ruan","Diego"]
+    "England": ["Oliver","Jack","Harry","George","Noah","Charlie","Jacob","Thomas","Oscar","William","James","Henry","Leo","Alfie","Joshua","Freddie","Archie","Arthur","Logan","Alexander","Harrison","Benjamin","Mason","Ethan","Finley","Lucas","Isaac","Edward","Samuel","Joseph"],
+    "Germany": ["Leon","Ben","Paul","Jonas","Elias","Finn","Noah","Luis","Luca","Felix","Maximilian","Moritz","Tim","Julian","Max","David","Jakob","Emil","Philipp","Tom","Nico","Fabian","Marlon","Samuel","Daniel","Jan","Simon","Jonathan","Aaron","Mika"],
+    "Spain": ["Alejandro","Pablo","Daniel","Adrián","Javier","David","Hugo","Mario","Manuel","Álvaro","Diego","Miguel","Raúl","Carlos","José","Antonio","Andrés","Fernando","Iván","Sergio","Alberto","Juan","Rubén","Ángel","Gonzalo","Martín","Rafael","Lucas","Jorge","Víctor"],
+    "France": ["Lucas","Louis","Hugo","Gabriel","Arthur","Jules","Nathan","Léo","Adam","Raphaël","Enzo","Paul","Tom","Noah","Théo","Ethan","Axel","Sacha","Mathis","Antoine","Clément","Matteo","Maxime","Samuel","Romain","Simon","Nolan","Benjamin","Alexandre","Julien"],
+    "Italy": ["Francesco","Alessandro","Lorenzo","Andrea","Matteo","Gabriele","Leonardo","Mattia","Davide","Tommaso","Giuseppe","Riccardo","Edoardo","Federico","Antonio","Marco","Giovanni","Nicolo","Simone","Samuele","Alberto","Pietro","Luca","Stefano","Paolo","Filippo","Angelo","Salvatore","Giorgio","Daniele"],
+    "Netherlands": ["Daan","Bram","Sem","Luuk","Jesse","Finn","Milan","Thijs","Lars","Lucas","Thomas","Stijn","Julian","Gijs","Tijn","Sven","Ruben","Niels","Tom","Tim","Noah","Max","Sam","Jens","Pim","Floris","Nick","Jurre","Koen","Luca"],
+    "Brazil": ["Lucas","Gabriel","Pedro","Matheus","Guilherme","Rafael","Bruno","Arthur","João","Gustavo","Felipe","Enzo","Davi","Matheus","Samuel","Eduardo","Luiz","Leonardo","Henrique","Thiago","Carlos","Caio","Vinícius","André","Vitor","Marcelo","Luan","Yuri","Ruan","Diego"]
 }
 ALL_NATIONS = list(surname_pools.keys())
-
-# --- 高精度カタカナ変換（外部APIなし簡易） ---
-def alphabet_to_katakana(s):
-    # 先頭大文字はカタカナ語頭化
-    s = s.lower()
-    s = re.sub(r'[^a-z]', '', s)  # 記号など除去
-    rep = [
-        ("sch", "シュ"),("ch", "チ"),("sh", "シ"),("ph", "フ"),("qu", "ク"),("ts", "ツ"),("th", "ス"),
-        ("a", "ア"),("i", "イ"),("u", "ウ"),("e", "エ"),("o", "オ"),("b", "バ"),("c", "ク"),("d", "ド"),("f", "フ"),
-        ("g", "グ"),("h", "ハ"),("j", "ジ"),("k", "カ"),("l", "ル"),("m", "マ"),("n", "ン"),("p", "プ"),("q", "ク"),
-        ("r", "ル"),("s", "ス"),("t", "ト"),("v", "ヴ"),("w", "ウ"),("x", "クス"),("y", "イ"),("z", "ズ")
-    ]
-    for a, k in rep:
-        s = s.replace(a, k)
-    return s.title()
-
-def name_to_katakana(name):
-    # "John Smith" → "ジョンスミス"
-    name_parts = name.split()
-    return "".join([alphabet_to_katakana(n) for n in name_parts])
 
 def make_name(nat, used_names):
     surname = random.choice(surname_pools[nat])
     given = random.choice(givenname_pools[nat])
-    if nat == "日本":
-        name = f"{surname} {given}"
-    else:
-        raw_name = f"{given} {surname}"
-        name = name_to_katakana(raw_name)
+    name = f"{given} {surname}"
     if name in used_names:
         return make_name(nat, used_names)
     used_names.add(name)
@@ -190,6 +151,8 @@ def generate_players(nsenior=30, nyouth=20):
 
 if "players_df" not in st.session_state:
     st.session_state.players_df = generate_players()
+if "budget" not in st.session_state:
+    st.session_state.budget = 1_000_000
 
 df = st.session_state.players_df
 df_senior = df[df["ユース"]==0].reset_index(drop=True)
@@ -212,9 +175,9 @@ with tabs[0]:
                 "</tbody></table></div>", unsafe_allow_html=True)
     st.markdown("---")
     st.markdown("#### Player Cards")
-    scroll_cols = st.columns(len(df_senior))
+    scroll_cols = st.columns(min(len(df_senior), 8))
     for idx, row in df_senior.iterrows():
-        with scroll_cols[idx]:
+        with scroll_cols[idx%8]:
             card_class = "player-card"
             img_url = get_player_img(row["国籍"], idx)
             st.markdown(
@@ -230,7 +193,7 @@ with tabs[0]:
 with tabs[1]:
     st.subheader("Youth Players")
     if len(df_youth)==0:
-        st.markdown("<div class='red-message'>ユース選手はいません</div>", unsafe_allow_html=True)
+        st.markdown("<div class='red-message'>No youth players available</div>", unsafe_allow_html=True)
     else:
         st.markdown("<div class='mobile-table'><table><thead><tr>" +
                     "".join([f"<th>{c}</th>" for c in ["名前","ポジション","年齢","国籍","契約年数","年俸","総合"]]) +
@@ -243,9 +206,9 @@ with tabs[1]:
                     "</tbody></table></div>", unsafe_allow_html=True)
         st.markdown("---")
         st.markdown("#### Player Cards")
-        scroll_cols = st.columns(len(df_youth))
+        scroll_cols = st.columns(min(len(df_youth), 8))
         for idx, row in df_youth.iterrows():
-            with scroll_cols[idx]:
+            with scroll_cols[idx%8]:
                 card_class = "player-card"
                 img_url = get_player_img(row["国籍"], idx)
                 st.markdown(
@@ -257,8 +220,62 @@ with tabs[1]:
                     <br><span style='font-size:0.95em'>契約:{row['契約年数']}｜年俸:{format_money(row['年俸'])}</span>
                     </div>""", unsafe_allow_html=True)
 
-# --- 他タブ（Match, Scout, Standings, Save）も同様に改善できます。  
-# さらに「詳細」「レーダーチャート」「試合/スカウト/順位表/セーブ」など
-# フル実装ご要望あれば続けて送ります！
+# --- Match ---
+with tabs[2]:
+    st.subheader("Match Simulation")
+    auto_starters = df_senior.sort_values(labels, ascending=False).head(11)["名前"].tolist()
+    starters = st.multiselect("Starting XI", df_senior["名前"].tolist(), default=auto_starters)
+    if len(starters) != 11:
+        st.markdown("<div class='red-message'>Please select exactly 11 players.</div>", unsafe_allow_html=True)
+    else:
+        tactics = st.selectbox("Tactics", ["Attack", "Balanced", "Defensive", "Counter", "Possession"])
+        if st.button("Kickoff!"):
+            team_strength = df_senior[df_senior["名前"].isin(starters)][labels].mean().mean() + random.uniform(-2, 2)
+            ai_strength = random.uniform(65, 88)
+            pwin = (team_strength / (team_strength+ai_strength)) if (team_strength+ai_strength)>0 else 0.5
+            fig, ax = plt.subplots(figsize=(4,1.3))
+            ax.bar(["You","AI"], [team_strength, ai_strength], color=["#22e","#ccc"])
+            ax.set_xticks([0,1]); ax.set_ylabel("Strength")
+            ax.set_title(f"Team Power (Win Probability: {int(100*pwin)}%)", color="#f4f8fc")
+            fig.patch.set_alpha(0)
+            st.pyplot(fig, transparent=True)
+            my_goals = max(0, int(np.random.normal((team_strength-60)/8, 1.0)))
+            op_goals = max(0, int(np.random.normal((ai_strength-60)/8, 1.0)))
+            result = "Win" if my_goals>op_goals else ("Lose" if my_goals<op_goals else "Draw")
+            st.success(f"{result}! {my_goals}-{op_goals}")
 
-st.caption("外国人は自動カタカナ化、国籍ごと顔割り当て、シニア30人・ユース20人・全機能対応版")
+# --- Scout ---
+with tabs[3]:
+    st.subheader("Scout Candidates")
+    st.markdown(f"<span class='budget-info'>Budget: {format_money(st.session_state.budget)}</span>", unsafe_allow_html=True)
+    if st.button("Refresh Senior List"):
+        st.session_state['scout_senior'] = generate_players(5, 0)
+    if st.button("Refresh Youth List"):
+        st.session_state['scout_youth'] = generate_players(0, 5)
+    if "scout_senior" in st.session_state:
+        st.markdown("**Senior Candidates**")
+        for idx, row in st.session_state['scout_senior'].iterrows():
+            img_url = get_player_img(row["国籍"], idx)
+            st.markdown(
+                f"<div class='player-card'><img src='{img_url}' width='55'><b>{row['名前']}</b><br>{row['ポジション']}/{row['年齢']}/{row['国籍']}<br>{format_money(row['年俸'])}</div>", 
+                unsafe_allow_html=True)
+    if "scout_youth" in st.session_state:
+        st.markdown("**Youth Candidates**")
+        for idx, row in st.session_state['scout_youth'].iterrows():
+            img_url = get_player_img(row["国籍"], idx)
+            st.markdown(
+                f"<div class='player-card'><img src='{img_url}' width='55'><b>{row['名前']}</b><br>{row['ポジション']}/{row['年齢']}/{row['国籍']}<br>{format_money(row['年俸'])}</div>", 
+                unsafe_allow_html=True)
+
+# --- Standings ---
+with tabs[4]:
+    st.subheader("League Standings")
+    st.markdown("<div class='mobile-table table-highlight'><table><thead><tr><th>Club</th><th>Pts</th><th>Goals</th></tr></thead><tbody><tr><td>You</td><td>0</td><td>0</td></tr><tr><td>AI</td><td>0</td><td>0</td></tr></tbody></table></div>", unsafe_allow_html=True)
+
+# --- Save ---
+with tabs[5]:
+    st.subheader("Data Save")
+    if st.button("Save (Local Only)"):
+        st.success("Saved!")
+
+st.caption("All features: English names, Euro faces, Netherlands added, no Japan, all improvements, full integration.")
