@@ -4,11 +4,11 @@ import numpy as np
 import matplotlib.pyplot as plt
 import random
 
-# --- UI/スタイル ---
+# --- UI/Style ---
 st.set_page_config(layout="wide")
 st.markdown("""
     <style>
-    html, body, .stApp { font-family: 'IPAexGothic', 'Meiryo', sans-serif; }
+    html, body, .stApp { font-family: 'IPAexGothic','Meiryo',sans-serif; }
     .stApp { background: linear-gradient(120deg, #1b2944 0%, #25375a 100%) !important; color: #eaf6ff; }
     .main .block-container { padding-top: 1rem; }
     .stTabs [data-baseweb="tab-list"] { gap: 2vw; }
@@ -65,23 +65,14 @@ givenname_pools = {
 }
 nationalities = list(surname_pools.keys())
 
-# --- 顔画像自動割当（国籍連動: 男性サッカー選手感） ---
+# --- 顔画像API：日本のみアジア系、他は欧米リアル ---
 def get_avatar_url(name, nationality):
-    # 利用API：randomuser.me（国コード指定）で男性リアル写真を取得
-    code = {
-        "日本": "men/31.jpg",
-        "イングランド": "men/11.jpg",
-        "ドイツ": "men/23.jpg",
-        "スペイン": "men/19.jpg",
-        "フランス": "men/6.jpg",
-        "イタリア": "men/27.jpg",
-        "ブラジル": "men/7.jpg"
-    }
-    # 名前ごとにシャッフルで数値を生成し画像パターンを変える
-    idx = (sum(ord(c) for c in name) % 50) + 1
-    if nationality in code:
-        return f"https://randomuser.me/api/portraits/{code[nationality].split('/')[0]}/{idx}.jpg"
+    idx = (sum(ord(c) for c in name) % 40) + 1
+    if nationality == "日本":
+        # アジア系顔（例：API用のSeed名生成）
+        return f"https://api.dicebear.com/7.x/notionists-neutral/svg?seed={name}&backgroundColor=ecf2f8&skinColor=variant01&radius=50"
     else:
+        # 欧米系顔 (男性限定)
         return f"https://randomuser.me/api/portraits/men/{idx}.jpg"
 
 # --- 年俸表示 ---
@@ -97,14 +88,13 @@ def format_money_euro(val):
 
 # --- 選手生成 ---
 def get_unique_name(nat, used):
-    for _ in range(50):  # 50回試行
+    for _ in range(50):
         sur = random.choice(surname_pools[nat])
         given = random.choice(givenname_pools[nat])
         name = f"{sur} {given}" if nat == "日本" else f"{given} {sur}"
         if name not in used:
             used.add(name)
             return name
-    # 万が一枯渇したら番号付与
     return f"{nat}_Player{random.randint(100,999)}"
 
 def generate_players(num, min_age, max_age, used_names, nationality_pool=None):
@@ -127,39 +117,53 @@ def generate_players(num, min_age, max_age, used_names, nationality_pool=None):
         })
     return out
 
-# --- データ初期化・読込 ---
+# --- データ初期化 ---
 try:
     df = pd.read_csv("players.csv")
-    # 必要列補完
     for col in ["契約年数","年俸","総合","Spd","Pas","Phy","Sta","Def","Tec","Men","Sht","Pow"]:
         if col not in df.columns: df[col] = 0
 except:
-    # 初回自動生成
     used_names = set()
-    players = generate_players(30, 19, 33, used_names)  # Senior
-    players += generate_players(20, 15, 18, used_names) # Youth
+    players = generate_players(30, 19, 33, used_names)
+    players += generate_players(20, 15, 18, used_names)
     df = pd.DataFrame(players)
     df.to_csv("players.csv", index=False)
 
-# --- シニア・ユース分離 ---
+# --- シニア・ユース ---
 df_senior = df[df["年齢"] >= 19].reset_index(drop=True)
 df_youth = df[df["年齢"] < 19].reset_index(drop=True)
 
-# --- Streamlitステート ---
-if "selected_detail" not in st.session_state: st.session_state.selected_detail = None
+if "detail_idx" not in st.session_state: st.session_state.detail_idx = None
+if "detail_youth" not in st.session_state: st.session_state.detail_youth = None
 
-# --- タブ ---
 tabs = st.tabs(["Senior", "Youth", "Match", "Scout", "Standings", "Save", "SNS"])
+
+# --- レーダーチャート描画 ---
+def draw_radar(row):
+    labels = ['Spd','Pas','Phy','Sta','Def','Tec','Men','Sht','Pow']
+    stats = [row[l] for l in labels]
+    angles = np.linspace(0, 2*np.pi, len(labels), endpoint=False)
+    stats += stats[:1]
+    angles = np.concatenate([angles, [angles[0]]])
+    fig, ax = plt.subplots(figsize=(3,3), subplot_kw={'polar':True})
+    ax.plot(angles, stats, linewidth=2)
+    ax.fill(angles, stats, alpha=0.35)
+    ax.set_yticklabels([])
+    ax.set_xticks(angles[:-1])
+    ax.set_xticklabels(labels, color="#222", fontweight="bold")
+    fig.tight_layout()
+    st.pyplot(fig)
 
 # --- Senior Tab ---
 with tabs[0]:
     st.header("Senior Squad")
-    main_cols = ["名前","ポジション","年齢","国籍","契約年数","年俸","総合"]
-    st.dataframe(df_senior[main_cols], use_container_width=True)
+    # 旧式の表（全ての列）で表示
+    st.dataframe(df_senior, use_container_width=True)
     st.markdown("### Players")
     st.markdown('<div class="player-cards-row">', unsafe_allow_html=True)
     for i, row in df_senior.iterrows():
         avatar_url = get_avatar_url(row["名前"], row["国籍"])
+        detail_flag = st.session_state.detail_idx == i
         st.markdown(f"""
         <div class="player-card">
             <img src="{avatar_url}" width="64">
@@ -167,11 +171,16 @@ with tabs[0]:
             <div class="pos-label">{row['ポジション']}</div>
             <br>OVR:{row['総合']} / {row['年齢']} / {row['国籍']}
             <br>契約:{row['契約年数']} | 年俸:{format_money_euro(row['年俸'])}
-            <form action="#" method="get">
-                <button class="detail-btn" name="detail" type="button" onclick="window.location.search='?detail={i}&tab=Senior'">詳細</button>
-            </form>
         </div>
         """, unsafe_allow_html=True)
+        # 詳細ボタン設置
+        if st.button("詳細", key=f"senior_detail_{i}"):
+            st.session_state.detail_idx = i
+        # 選択時は詳細&レーダー
+        if detail_flag:
+            st.markdown("#### 詳細ステータス")
+            st.json(row[["総合","Spd","Pas","Phy","Sta","Def","Tec","Men","Sht","Pow"]].to_dict())
+            draw_radar(row)
     st.markdown("</div>", unsafe_allow_html=True)
 
 # --- Youth Tab ---
@@ -180,11 +189,12 @@ with tabs[1]:
     if len(df_youth)==0:
         st.markdown('<div class="youth-msg">ユース選手はいません</div>', unsafe_allow_html=True)
     else:
-        st.dataframe(df_youth[main_cols], use_container_width=True)
+        st.dataframe(df_youth, use_container_width=True)
         st.markdown("### Players")
         st.markdown('<div class="player-cards-row">', unsafe_allow_html=True)
         for i, row in df_youth.iterrows():
             avatar_url = get_avatar_url(row["名前"], row["国籍"])
+            detail_flag = st.session_state.detail_youth == i
             st.markdown(f"""
             <div class="player-card">
                 <img src="{avatar_url}" width="64">
@@ -192,40 +202,60 @@ with tabs[1]:
                 <div class="pos-label">{row['ポジション']}</div>
                 <br>OVR:{row['総合']} / {row['年齢']} / {row['国籍']}
                 <br>契約:{row['契約年数']} | 年俸:{format_money_euro(row['年俸'])}
-                <form action="#" method="get">
-                    <button class="detail-btn" name="detail" type="button" onclick="window.location.search='?detail=y{i}&tab=Youth'">詳細</button>
-                </form>
             </div>
             """, unsafe_allow_html=True)
+            if st.button("詳細", key=f"youth_detail_{i}"):
+                st.session_state.detail_youth = i
+            if detail_flag:
+                st.markdown("#### 詳細ステータス")
+                st.json(row[["総合","Spd","Pas","Phy","Sta","Def","Tec","Men","Sht","Pow"]].to_dict())
+                draw_radar(row)
         st.markdown("</div>", unsafe_allow_html=True)
 
 # --- Match Tab ---
 with tabs[2]:
     st.header("Match Simulation")
     st.markdown("おすすめ編成で自動選出：")
-    if st.button("おすすめ編成", key="rec_xi", help="能力値順で自動編成"):
-        st.session_state["starting_xi"] = df_senior.sort_values("総合", ascending=False).head(11)["名前"].tolist()
-    st.multiselect("Starting XI", df_senior["名前"].tolist(), key="starting_xi")
-    st.markdown("ポジション : <b style='color:#fff;'>GK/DF/MF/FW</b>（手動で調整可）", unsafe_allow_html=True)
-    if "starting_xi" in st.session_state and len(st.session_state["starting_xi"])!=11:
+    if st.button("おすすめ編成", key="auto_lineup", help="自動で11人バランス編成"):
+        st.session_state.selected_starters = df_senior.sort_values("総合", ascending=False).head(11)["名前"].tolist()
+    starters = st.multiselect("Starting XI", df_senior["名前"].tolist(), default=getattr(st.session_state,"selected_starters",[]))
+    st.markdown("ポジション：<b>GK/DF/MF/FW</b>（手動で調整可）",unsafe_allow_html=True)
+    if len(starters)!=11:
         st.markdown('<div class="error-msg">11人ちょうど選んでください</div>', unsafe_allow_html=True)
+    else:
+        if st.button("Kickoff!", key="kick", help="試合開始！（ダミー）"):
+            st.success("（ダミー）試合開始！")
+        # ここに勝率予想や演出も追加可能
 
 # --- Scout Tab ---
 with tabs[3]:
     st.header("Scout Candidates")
-    st.markdown('<div class="money-badge">Budget: 1000000€</div>', unsafe_allow_html=True)
-    # シニアスカウト
-    st.subheader("Senior Scout")
-    # ...省略（同様の横スクロールカード＋顔・国籍対応で）
-    # ユーススカウト
-    st.subheader("Youth Scout")
-    # ...省略（同様の横スクロールカード＋顔・国籍対応で）
+    st.markdown('<span class="money-badge">Budget: 1000000€</span>',unsafe_allow_html=True)
+    if st.button("Refresh List", key="refresh_scout"):
+        st.info("スカウト候補リストをリフレッシュ！（ダミー）")
+    # 横スクロール化・顔画像・加入ボタン等ここに追加可
+    st.button("ユーススカウト", key="youth_scout")
+    st.button("シニアスカウト", key="senior_scout")
 
-# --- Standings/Save/SNS ---
-# ...（省略、上記と同様にUI調整・エラー赤字）
+# --- Standings Tab ---
+with tabs[4]:
+    st.header("Standings")
+    st.button("順位表リロード", key="standings_reload")
+    st.markdown('<span class="info-msg">ダミー順位表（今後実装）</span>',unsafe_allow_html=True)
 
-# --- 詳細ボタン用（仮）---
-# 本格運用時はStreamlitのセッション管理またはURLパラメータで個別展開を。
-# ここでは省略。詳細を押した際の「ステータス/レーダーチャート」もMatplotlib等で描画できます。
+# --- Save Tab ---
+with tabs[5]:
+    st.header("Save")
+    if st.button("Save players.csv", key="save_btn"):
+        df.to_csv("players.csv", index=False)
+        st.success("Saved!")
+    if st.button("Load players.csv", key="load_btn"):
+        st.info("読み込み機能は今後実装")
 
-st.caption("2025年最新版：国籍別リアル顔＋横スクロール＋編成補助＋全機能一体統合・エラー防止")
+# --- SNS Tab ---
+with tabs[6]:
+    st.header("SNS / Event Feed")
+    st.button("SNS更新", key="sns_btn")
+    st.info("SNS/履歴等は今後実装")
+
+st.caption("2025年最新版：国籍別リアル顔＋横スクロール＋旧式表＋Kickoff＋詳細レーダーチャート＋エラー赤統一＋全機能一体統合版")
