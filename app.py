@@ -63,7 +63,7 @@ CLUBS = ["Strive FC","Oxford Utd","Viking SC","Lazio Town",
          "Munich Stars","Lille City","Sevilla Reds","Verona Blues"]
 MY_CLUB = CLUBS[0]
 NATIONS = {
-    "United Kingdom":"🇬🇧","Germany":"🇩🇪","Italy":"🇮🇹","Spain":"🇪🇸",
+    "England":"🏴","Germany":"🇩🇪","Italy":"🇮🇹","Spain":"🇪🇸",
     "France":"🇫🇷","Brazil":"🇧🇷","Netherlands":"🇳🇱","Portugal":"🇵🇹"
 }
 
@@ -80,15 +80,15 @@ given   = ["Oliver","Jack","Harry","George","Noah","Charlie","Jacob","Thomas","O
            "Mason","Ethan","Finley","Lucas","Isaac","Edward","Samuel","Joseph","Dylan","Toby"]
 def make_name(used):
     while True:
-        n = f"{random.choice(given)} {random.choice(surname)}"
+        n=f"{random.choice(given)} {random.choice(surname)}"
         if n not in used:
             used.add(n)
             return n
 
 # --- フォーマット ---
 def fmt_money(v):
-    if v >= 1_000_000: return f"{v//1_000_000}m€"
-    if v >= 1_000:     return f"{v//1_000}k€"
+    if v>=1_000_000: return f"{v//1_000_000}m€"
+    if v>=1_000:     return f"{v//1_000}k€"
     return f"{v}€"
 
 labels = ['Spd','Pas','Phy','Sta','Def','Tec','Men','Sht','Pow']
@@ -96,36 +96,36 @@ labels_full = {'Spd':'Speed','Pas':'Pass','Phy':'Physical','Sta':'Stamina',
                'Def':'Defense','Tec':'Technique','Men':'Mental','Sht':'Shoot','Pow':'Power'}
 
 # --- データ生成 ---
-def gen_players(n, youth=False):
-    used = set()
-    lst = []
+def gen_players(n,youth=False):
+    used=set()
+    lst=[]
     for i in range(n):
-        name = make_name(used)
-        stats = {l: random.randint(52 if youth else 60, 82 if youth else 90) for l in labels}
-        ovr = int(np.mean(list(stats.values())))
+        name=make_name(used)
+        stats={l:random.randint(52 if youth else 60,82 if youth else 90) for l in labels}
+        ovr=int(np.mean(list(stats.values())))
         lst.append({
-            "Name": name,
-            "Nat": random.choice(list(NATIONS.keys())),
-            "Pos": random.choice(["GK","DF","MF","FW"]),
-            "Age": random.randint(15 if youth else 18, 18 if youth else 34),
+            "Name":name,
+            "Nat":random.choice(list(NATIONS.keys())),
+            "Pos":random.choice(["GK","DF","MF","FW"]),
+            "Age":random.randint(15 if youth else 18,18 if youth else 34),
             **stats,
-            "Salary": random.randint(30_000 if youth else 120_000,
-                                     250_000 if youth else 1_200_000),
-            "Contract": random.randint(1, 2 if youth else 3),
-            "OVR": ovr,
-            "Youth": youth
+            "Salary":random.randint(30_000 if youth else 120_000,
+                                   250_000 if youth else 1_200_000),
+            "Contract":random.randint(1,2 if youth else 3),
+            "OVR":ovr,
+            "Youth":youth
         })
     return pd.DataFrame(lst)
 
 # --- セッション初期化 ---
 if "senior" not in st.session_state:
-    st.session_state.senior = gen_players(30, False)
+    st.session_state.senior = gen_players(30,False)
 if "youth" not in st.session_state:
-    st.session_state.youth = gen_players(20, True)
+    st.session_state.youth = gen_players(20,True)
 if "stand" not in st.session_state:
-    st.session_state.stand = pd.DataFrame({"Club": CLUBS, "W":0,"D":0,"L":0,"Pts":0})
+    st.session_state.stand = pd.DataFrame({"Club":CLUBS,"W":0,"D":0,"L":0,"Pts":0})
 if "opp" not in st.session_state:
-    st.session_state.opp = random.choice([c for c in CLUBS if c != MY_CLUB])
+    st.session_state.opp = random.choice([c for c in CLUBS if c!=MY_CLUB])
 if "detail" not in st.session_state:
     st.session_state.detail = None
 if "starters" not in st.session_state:
@@ -152,11 +152,10 @@ with tabs[0]:
     st.dataframe(df1[["Name","Nat","Pos","Age","Contract","Salary","OVR"]].assign(
         Salary=df1["Salary"].map(fmt_money)
     ), use_container_width=True)
-
     st.markdown("---")
     st.markdown("#### Players")
     st.markdown('<div class="mobile-scroll">', unsafe_allow_html=True)
-    for i, row in df1.iterrows():
+    for i,row in df1.iterrows():
         key = f"sen{i}"
         cols = st.columns([1,3])
         with cols[0]:
@@ -166,14 +165,14 @@ with tabs[0]:
             st.write(f"{row['Nat']}｜{row['Pos']}｜{row['Age']}")
             st.write(f"OVR:{row['OVR']}")
             if st.button("Detail", key=key):
-                st.session_state.detail = None if st.session_state.detail == key else key
+                st.session_state.detail = None if st.session_state.detail==key else key
         if st.session_state.detail == key:
             abil = [row[l] for l in labels] + [row[labels[0]]]
             ang = np.linspace(0,2*np.pi,len(labels)+1)
-            fig, ax = plt.subplots(subplot_kw=dict(polar=True), figsize=(2,2))
-            ax.plot(ang, abil, linewidth=2); ax.fill(ang, abil, alpha=0.3)
-            ax.set_xticks(ang[:-1]); ax.set_xticklabels([labels_full[l] for l in labels], color="#fff")
-            ax.set_yticklabels([]); ax.grid(color="#fff", alpha=0.2)
+            fig,ax = plt.subplots(subplot_kw=dict(polar=True),figsize=(2,2))
+            ax.plot(ang,abil,linewidth=2); ax.fill(ang,abil,alpha=0.3)
+            ax.set_xticks(ang[:-1]); ax.set_xticklabels([labels_full[l] for l in labels],color="#fff")
+            ax.set_yticklabels([]); ax.grid(color="#fff",alpha=0.2)
             fig.patch.set_alpha(0); ax.patch.set_alpha(0)
             st.pyplot(fig)
             stats = "".join(
@@ -197,7 +196,7 @@ with tabs[1]:
         st.markdown("---")
         st.markdown("#### Players")
         st.markdown('<div class="mobile-scroll">', unsafe_allow_html=True)
-        for i, row in df2.iterrows():
+        for i,row in df2.iterrows():
             key = f"you{i}"
             cols = st.columns([1,3])
             with cols[0]:
@@ -207,14 +206,14 @@ with tabs[1]:
                 st.write(f"{row['Nat']}｜{row['Pos']}｜{row['Age']}")
                 st.write(f"OVR:{row['OVR']}")
                 if st.button("Detail", key=key):
-                    st.session_state.detail = None if st.session_state.detail == key else key
+                    st.session_state.detail = None if st.session_state.detail==key else key
             if st.session_state.detail == key:
                 abil = [row[l] for l in labels] + [row[labels[0]]]
                 ang = np.linspace(0,2*np.pi,len(labels)+1)
-                fig, ax = plt.subplots(subplot_kw=dict(polar=True), figsize=(2,2))
-                ax.plot(ang, abil, linewidth=2); ax.fill(ang, abil, alpha=0.3)
-                ax.set_xticks(ang[:-1]); ax.set_xticklabels([labels_full[l] for l in labels], color="#fff")
-                ax.set_yticklabels([]); ax.grid(color="#fff", alpha=0.2)
+                fig,ax = plt.subplots(subplot_kw=dict(polar=True),figsize=(2,2))
+                ax.plot(ang,abil,linewidth=2); ax.fill(ang,abil,alpha=0.3)
+                ax.set_xticks(ang[:-1]); ax.set_xticklabels([labels_full[l] for l in labels],color="#fff")
+                ax.set_yticklabels([]); ax.grid(color="#fff",alpha=0.2)
                 fig.patch.set_alpha(0); ax.patch.set_alpha(0)
                 st.pyplot(fig)
                 stats = "".join(
@@ -241,7 +240,7 @@ with tabs[2]:
             "3-5-2":([5],[3.5,5,6.5],[2,4,6,8],[3,7])
         }
         gk,def4,mid,fw = coords[formation]
-        fig, ax = plt.subplots(figsize=(3,5))
+        fig,ax = plt.subplots(figsize=(3,5))
         ax.set_xlim(0,10); ax.set_ylim(0,16); ax.axis('off')
         ax.plot([0,10],[8,8],color='white',linewidth=1)
         names = st.session_state.starters; idx=0
@@ -257,23 +256,15 @@ with tabs[2]:
     starters = st.multiselect("Starting XI", st.session_state.senior["Name"], default=st.session_state.starters)
     if st.button("Kickoff!"):
         # 他チーム裏試合
-        dfst = st.session_state.stand
-        others = [c for c in CLUBS if c not in [MY_CLUB, st.session_state.opp]]
+        dfst=st.session_state.stand
+        others=[c for c in CLUBS if c not in [MY_CLUB, st.session_state.opp]]
         for i in range(0,len(others),2):
-            a,b = others[i],others[i+1]
+            a,b=others[i],others[i+1]
             ga,gb = random.randint(0,3),random.randint(0,3)
-            if ga>gb:
-                dfst.loc[dfst.Club==a,["W","Pts"]]+= [1,3]
-                dfst.loc[dfst.Club==b,"L"]+=1
-            elif ga<gb:
-                dfst.loc[dfst.Club==b,["W","Pts"]]+= [1,3]
-                dfst.loc[dfst.Club==a,"L"]+=1
-            else:
-                dfst.loc[dfst.Club.isin([a,b]),"D"]+=1
-                dfst.loc[dfst.Club==a,"Pts"]+=1
-                dfst.loc[dfst.Club==b,"Pts"]+=1
-
-        # 自チーム結果
+            if ga>gb: dfst.loc[dfst.Club==a,["W","Pts"]]+= [1,3]; dfst.loc[dfst.Club==b,"L"]+=1
+            elif ga<gb: dfst.loc[dfst.Club==b,["W","Pts"]]+= [1,3]; dfst.loc[dfst.Club==a,"L"]+=1
+            else: dfst.loc[dfst.Club.isin([a,b]),"D"]+=1; dfst.loc[dfst.Club==a,"Pts"]+=1; dfst.loc[dfst.Club==b,"Pts"]+=1
+        # 自チーム
         ours = st.session_state.senior[st.session_state.senior["Name"].isin(starters)]
         atk = ours["OVR"].mean() if not ours.empty else 75
         oppatk = random.uniform(60,90)
@@ -282,17 +273,9 @@ with tabs[2]:
         res = "Win" if g1>g2 else "Lose" if g1<g2 else "Draw"
         mvp = ours.nlargest(1,"OVR")["Name"].iloc[0] if not ours.empty else ""
         mi,oi = MY_CLUB,st.session_state.opp
-        if res=="Win":
-            dfst.loc[dfst.Club==mi,["W","Pts"]]+= [1,3]
-            dfst.loc[dfst.Club==oi,"L"]+=1
-        elif res=="Lose":
-            dfst.loc[dfst.Club==oi,["W","Pts"]]+= [1,3]
-            dfst.loc[dfst.Club==mi,"L"]+=1
-        else:
-            dfst.loc[dfst.Club.isin([mi,oi]),"D"]+=1
-            dfst.loc[dfst.Club==mi,"Pts"]+=1
-            dfst.loc[dfst.Club==oi,"Pts"]+=1
-
+        if res=="Win": dfst.loc[dfst.Club==mi,["W","Pts"]]+= [1,3]; dfst.loc[dfst.Club==oi,"L"]+=1
+        elif res=="Lose": dfst.loc[dfst.Club==oi,["W","Pts"]]+= [1,3]; dfst.loc[dfst.Club==mi,"L"]+=1
+        else: dfst.loc[dfst.Club.isin([mi,oi]),"D"]+=1; dfst.loc[dfst.Club==mi,"Pts"]+=1; dfst.loc[dfst.Club==oi,"Pts"]+=1
         st.session_state.stand = dfst.sort_values("Pts",ascending=False).reset_index(drop=True)
         st.markdown(f"<div style='background:#27e3b9;color:#fff;padding:8px;border-radius:8px;'>**{res} ({g1}-{g2})**</div>", unsafe_allow_html=True)
         st.markdown(f"<div style='background:#314265;color:#fff;padding:6px;border-radius:6px;'>Goals: You {g1} ‒ Opp {g2} | MVP: {mvp}</div>", unsafe_allow_html=True)
@@ -386,4 +369,4 @@ with tabs[5]:
     if st.button("Save Data"): st.success("Data saved!")
     if st.button("Load Data"): st.success("Data loaded!")
 
-st.caption("2025年版：United Kingdom 表示 完全統合版")
+st.caption("2025年版：完全統合・省略なし — 間隔調整／苗字表示／線細化／国籍絵文字／ソートなし検索可")
