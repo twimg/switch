@@ -1,3 +1,4 @@
+# app.py
 import streamlit as st
 import pandas as pd
 import numpy as np
@@ -6,8 +7,6 @@ import random
 
 # --- ページ設定 ---
 st.set_page_config(page_title="Soccer Club Management Sim", layout="wide")
-random.seed(42)
-np.random.seed(42)
 
 # --- CSSカスタム ---
 st.markdown("""
@@ -18,13 +17,13 @@ h1,h2,h3,h4,h5,h6 { color:#fff!important; }
 .stTabs button { color:#fff!important; background:transparent!important; }
 .stTabs [aria-selected="true"] { border-bottom:2.5px solid #f7df70!important; }
 .stButton>button, .stDownloadButton>button {
-  background:#27e3b9!important; color:#202b41!important; font-weight:bold;
-  border-radius:10px; margin:6px 0; box-shadow:0 0 8px #23e9e733;
+  background:#192841!important; color:#eaf6ff!important; font-weight:bold;
+  border-radius:10px; margin:6px 0; box-shadow:0 0 8px #0005;
 }
-.stButton>button:active { background:#ffee99!important; }
+.stButton>button:active { background:#314265!important; }
 .player-card {
   background:#fff; color:#132346; border-radius:12px;
-  padding:10px; margin:8px; min-width:140px; max-width:160px;
+  padding:10px; margin:8px; width:160px; display:inline-block; vertical-align:top;
   box-shadow:0 0 8px #0003; position:relative;
 }
 .player-card img {
@@ -35,15 +34,11 @@ h1,h2,h3,h4,h5,h6 { color:#fff!important; }
   padding:4px 8px; border-radius:6px; margin-top:6px; cursor:pointer;
 }
 .detail-popup {
-  position:absolute; top:100%; left:50%; transform:translateX(-50%);
+  position:absolute; top:calc(100% + 6px); left:50%; transform:translateX(-50%);
   background:rgba(36,54,84,0.9); color:#fff; padding:12px; border-radius:10px;
   width:200px; box-shadow:0 0 10px #000a; z-index:10; backdrop-filter:blur(8px);
 }
-.mobile-table, .mobile-scroll { overflow-x:auto; white-space:nowrap; }
-.mobile-table th, .mobile-table td {
-  padding:4px 10px; font-size:15px; border-bottom:1px solid #243255;
-}
-.mobile-scroll .player-card { display:inline-block; vertical-align:top; }
+.mobile-scroll { overflow-x:auto; white-space:nowrap; padding-bottom:12px; }
 .stage-label { background:#222b3c88; color:#fff; padding:6px 12px; border-radius:8px; display:inline-block; margin-bottom:8px;}
 .red-message { color:#f55!important; }
 .stDataFrame {background:rgba(20,30,50,0.7)!important; color:#fff!important;}
@@ -61,7 +56,7 @@ NATIONS = {
     "France":"🇫🇷","Brazil":"🇧🇷","Netherlands":"🇳🇱","Portugal":"🇵🇹"
 }
 
-# --- 画像 ---
+# --- 顔画像（欧米風30枚）---
 face_imgs = [f"https://randomuser.me/api/portraits/men/{i}.jpg" for i in range(10,50)]
 def get_img(i): return face_imgs[i % len(face_imgs)]
 
@@ -79,7 +74,7 @@ def make_name(used):
             used.add(n)
             return n
 
-# --- フォーマット ---
+# --- フォーマット関数 ---
 def fmt_money(v):
     if v>=1_000_000: return f"{v//1_000_000}m€"
     if v>=1_000:     return f"{v//1_000}k€"
@@ -91,45 +86,45 @@ labels_full = {'Spd':'Speed','Pas':'Pass','Phy':'Physical','Sta':'Stamina',
 
 # --- データ生成 ---
 def gen_players(n,youth=False):
-    used=set()
-    lst=[]
+    used = set()
+    lst = []
     for i in range(n):
-        name=make_name(used)
-        stats={l:random.randint(52 if youth else 60,82 if youth else 90) for l in labels}
-        ovr=int(np.mean(list(stats.values())))
+        name = make_name(used)
+        stats = {l: random.randint(52 if youth else 60, 82 if youth else 90) for l in labels}
+        ovr   = int(np.mean(list(stats.values())))
+        # --- 契約金 Fee を生成(サイン時コスト) ---
+        fee   = random.randint(50_000 if youth else 200_000, 300_000 if youth else 1_500_000)
+        salary = random.randint(30_000 if youth else 120_000,
+                               250_000 if youth else 1_200_000)
+        contract = random.randint(1, 2 if youth else 3)
+        nat = random.choice(list(NATIONS.keys()))
         lst.append({
-            "Name":name,
-            "Nat":random.choice(list(NATIONS.keys())),
-            "Pos":random.choice(["GK","DF","MF","FW"]),
-            "Age":random.randint(15 if youth else 18,18 if youth else 34),
+            "Name": name, "Nat": nat, "Pos": random.choice(["GK","DF","MF","FW"]),
+            "Age": random.randint(15 if youth else 18, 18 if youth else 34),
             **stats,
-            "Salary":random.randint(30_000 if youth else 120_000,
-                                   250_000 if youth else 1_200_000),
-            "Contract":random.randint(1,2 if youth else 3),
-            "OVR":ovr,
-            "Youth":youth
+            "OVR": ovr,
+            "Salary": salary,
+            "Contract": contract,
+            "Fee": fee,
+            "Youth": youth
         })
     return pd.DataFrame(lst)
 
 # --- セッション初期化 ---
 if "senior" not in st.session_state:
-    st.session_state.senior = gen_players(30,False)
+    st.session_state.senior = gen_players(30, False)
 if "youth" not in st.session_state:
-    st.session_state.youth = gen_players(20,True)
+    st.session_state.youth  = gen_players(20, True)
 if "stand" not in st.session_state:
-    st.session_state.stand = pd.DataFrame({"Club":CLUBS,"W":0,"D":0,"L":0,"Pts":0})
+    st.session_state.stand   = pd.DataFrame({"Club":CLUBS,"W":0,"D":0,"L":0,"Pts":0})
 if "opp" not in st.session_state:
-    st.session_state.opp = random.choice([c for c in CLUBS if c!=MY_CLUB])
+    st.session_state.opp     = random.choice([c for c in CLUBS if c!=MY_CLUB])
 if "detail" not in st.session_state:
-    st.session_state.detail = None
+    st.session_state.detail  = None
 if "starters" not in st.session_state:
     st.session_state.starters = []
 if "budget" not in st.session_state:
-    st.session_state.budget = 3_000_000
-if "refresh_s" not in st.session_state:
-    st.session_state.refresh_s = 0
-if "refresh_y" not in st.session_state:
-    st.session_state.refresh_y = 0
+    st.session_state.budget  = 3_000_000
 if "scout_s" not in st.session_state:
     st.session_state.scout_s = pd.DataFrame()
 if "scout_y" not in st.session_state:
@@ -142,33 +137,35 @@ tabs = st.tabs(["Senior","Youth","Match","Scout","Standings","Save"])
 with tabs[0]:
     st.markdown('<div class="stage-label">Senior Squad</div>', unsafe_allow_html=True)
     df1 = st.session_state.senior.copy()
-    # 国籍フラグ化
     df1["Nat"] = df1["Nat"].map(NATIONS)
-    # ソート可能なDataFrame表示
-    st.dataframe(df1[["Name","Nat","Pos","Age","Contract","Salary","OVR"]].assign(
-        Salary=df1["Salary"].map(fmt_money)
-    ), use_container_width=True)
+    st.dataframe(
+        df1[["Name","Nat","Pos","Age","Contract","Salary","Fee","OVR"]]
+          .assign(Salary=df1["Salary"].map(fmt_money), Fee=df1["Fee"].map(fmt_money)),
+        use_container_width=True
+    )
     st.markdown("---")
     st.markdown("#### Players")
     st.markdown('<div class="mobile-scroll">', unsafe_allow_html=True)
     for i,row in df1.iterrows():
-        key = f"sen{i}"
-        cols = st.columns([1,3])
-        with cols[0]:
-            st.image(get_img(i), width=48)
-        with cols[1]:
-            st.write(f"**{row['Name']}**")
-            st.write(f"{row['Nat']}｜{row['Pos']}｜{row['Age']}")
-            st.write(f"OVR:{row['OVR']}")
-            if st.button("Detail", key=key):
-                # トグル動作
-                st.session_state.detail = None if st.session_state.detail==key else key
-        # Detail表示
+        key = f"s{i}"
+        st.markdown(f"""
+          <div class="player-card">
+            <img src="{get_img(i)}"><br>
+            <b>{row['Name']} {row['Nat']}</b><br>
+            <span class="pos">{row['Pos']}</span> / {row['Age']}<br>
+            OVR:{row['OVR']}<br>
+            Contract:{row['Contract']}y | Salary:{fmt_money(row['Salary'])}<br>
+            Fee:{fmt_money(row['Fee'])}<br>
+            <button class="detail-btn" onclick="streamlit:runButton('{key}')">Detail</button>
+          </div>
+        """, unsafe_allow_html=True)
+        if st.button("", key=key):  # invisible placeholder
+            st.session_state.detail = None if st.session_state.detail==key else key
         if st.session_state.detail == key:
-            abil = [row[l] for l in labels] + [row[labels[0]]]
+            vals = [row[l] for l in labels] + [row[labels[0]]]
             ang = np.linspace(0,2*np.pi,len(labels)+1)
             fig,ax = plt.subplots(subplot_kw=dict(polar=True),figsize=(2,2))
-            ax.plot(ang,abil,linewidth=2); ax.fill(ang,abil,alpha=0.3)
+            ax.plot(ang,vals,linewidth=2); ax.fill(ang,vals,alpha=0.3)
             ax.set_xticks(ang[:-1]); ax.set_xticklabels([labels_full[l] for l in labels],color="#fff")
             ax.set_yticklabels([]); ax.grid(color="#fff",alpha=0.2)
             fig.patch.set_alpha(0); ax.patch.set_alpha(0)
@@ -188,92 +185,38 @@ with tabs[1]:
     if df2.empty:
         st.markdown("<div class='red-message'>No youth players.</div>", unsafe_allow_html=True)
     else:
-        st.dataframe(df2[["Name","Nat","Pos","Age","Contract","Salary","OVR"]].assign(
-            Salary=df2["Salary"].map(fmt_money)
-        ), use_container_width=True)
-        st.markdown("---")
-        st.markdown("#### Players")
-        st.markdown('<div class="mobile-scroll">', unsafe_allow_html=True)
-        for i,row in df2.iterrows():
-            key = f"you{i}"
-            cols = st.columns([1,3])
-            with cols[0]:
-                st.image(get_img(i+30), width=48)
-            with cols[1]:
-                st.write(f"**{row['Name']}**")
-                st.write(f"{row['Nat']}｜{row['Pos']}｜{row['Age']}")
-                st.write(f"OVR:{row['OVR']}")
-                if st.button("Detail", key=key):
-                    st.session_state.detail = None if st.session_state.detail==key else key
-            if st.session_state.detail == key:
-                abil = [row[l] for l in labels] + [row[labels[0]]]
-                ang = np.linspace(0,2*np.pi,len(labels)+1)
-                fig,ax = plt.subplots(subplot_kw=dict(polar=True),figsize=(2,2))
-                ax.plot(ang,abil,linewidth=2); ax.fill(ang,abil,alpha=0.3)
-                ax.set_xticks(ang[:-1]); ax.set_xticklabels([labels_full[l] for l in labels],color="#fff")
-                ax.set_yticklabels([]); ax.grid(color="#fff",alpha=0.2)
-                fig.patch.set_alpha(0); ax.patch.set_alpha(0)
-                st.pyplot(fig)
-                stats = "".join(
-                    f"<span style='color:{'#20e660' if row[l]>=90 else '#ffe600' if row[l]>=75 else '#1aacef'}'>{l}:{row[l]}</span><br>"
-                    for l in labels
-                )
-                st.markdown(f"<div class='detail-popup'>{stats}</div>", unsafe_allow_html=True)
-        st.markdown('</div>', unsafe_allow_html=True)
+        st.dataframe(
+            df2[["Name","Nat","Pos","Age","Contract","Salary","Fee","OVR"]]
+               .assign(Salary=df2["Salary"].map(fmt_money), Fee=df2["Fee"].map(fmt_money)),
+            use_container_width=True
+        )
 
 # ==== 3. Match ====
 with tabs[2]:
-    st.markdown('<div class="stage-label">Match Simulation ‒ Week 1</div>', unsafe_allow_html=True)
-    st.write(f"**Your Club:** {MY_CLUB}  vs  **Opponent:** {st.session_state.opp}")
-    formation = st.selectbox("Formation",["4-4-2","4-3-3","3-5-2"])
+    st.markdown('<div class="stage-label">Match Simulation – Week 1</div>', unsafe_allow_html=True)
+    st.write(f"**Your Club:** {MY_CLUB}   vs   **Opponent:** {st.session_state.opp}")
     if st.button("Auto Starting XI"):
         st.session_state.starters = st.session_state.senior.nlargest(11,"OVR")["Name"].tolist()
-    # フォーメーション図
     if st.session_state.starters:
-        coords = {
-            "4-4-2":([5],[2,4,6,8],[2,4,6,8],[3,7]),
-            "4-3-3":([5],[2,4,6,8],[3.5,5,6.5],[2,5,8]),
-            "3-5-2":([5],[3.5,5,6.5],[2,4,6,8],[3,7])
-        }
-        gk,def4,mid,fw = coords[formation]
-        fig,ax = plt.subplots(figsize=(3,5))
-        ax.set_xlim(0,10); ax.set_ylim(0,16); ax.axis('off')
-        ax.plot([0,10],[8,8],color='white',linewidth=1)
-        names = st.session_state.starters; idx=0
-        ax.text(5,1,names[idx],ha='center',color='yellow'); idx+=1
-        for x in def4:
-            ax.text(x,4,names[idx],ha='center',color='white'); idx+=1
-        for x in mid:
-            ax.text(x,8,names[idx],ha='center',color='white'); idx+=1
-        for x in fw:
-            ax.text(x,12,names[idx],ha='center',color='white'); idx+=1
-        st.pyplot(fig)
-    starters = st.multiselect("Starting XI", st.session_state.senior["Name"], default=st.session_state.starters)
+        st.write("Starting XI: " + ", ".join(st.session_state.starters))
     if st.button("Kickoff!"):
-        # 裏試合
-        dfst=st.session_state.stand
-        others=[c for c in CLUBS if c not in [MY_CLUB, st.session_state.opp]]
-        for i in range(0,len(others),2):
-            a,b=others[i],others[i+1]
-            ga,gb = random.randint(0,3),random.randint(0,3)
-            if ga>gb: dfst.loc[dfst.Club==a,["W","Pts"]]+= [1,3]; dfst.loc[dfst.Club==b,"L"]+=1
-            elif ga<gb: dfst.loc[dfst.Club==b,["W","Pts"]]+= [1,3]; dfst.loc[dfst.Club==a,"L"]+=1
-            else: dfst.loc[dfst.Club.isin([a,b]),"D"]+=1; dfst.loc[dfst.Club==a,"Pts"]+=1; dfst.loc[dfst.Club==b,"Pts"]+=1
-        # 自チーム
-        ours = st.session_state.senior[st.session_state.senior["Name"].isin(starters)]
+        dfst = st.session_state.stand
+        ours = st.session_state.senior[st.session_state.senior["Name"].isin(st.session_state.starters)]
         atk = ours["OVR"].mean() if not ours.empty else 75
         oppatk = random.uniform(60,90)
         g1 = max(0,int(np.random.normal((atk-60)/8,1)))
         g2 = max(0,int(np.random.normal((oppatk-60)/8,1)))
         res = "Win" if g1>g2 else "Lose" if g1<g2 else "Draw"
-        mvp = ours.nlargest(1,"OVR")["Name"].iloc[0] if not ours.empty else ""
-        mi,oi = MY_CLUB,st.session_state.opp
-        if res=="Win": dfst.loc[dfst.Club==mi,["W","Pts"]]+= [1,3]; dfst.loc[dfst.Club==oi,"L"]+=1
-        elif res=="Lose": dfst.loc[dfst.Club==oi,["W","Pts"]]+= [1,3]; dfst.loc[dfst.Club==mi,"L"]+=1
-        else: dfst.loc[dfst.Club.isin([mi,oi]),"D"]+=1; dfst.loc[dfst.Club==mi,"Pts"]+=1; dfst.loc[dfst.Club==oi,"Pts"]+=1
-        st.session_state.stand = dfst.sort_values("Pts",ascending=False).reset_index(drop=True)
-        st.markdown(f"<div style='background:#27e3b9;color:#fff;padding:8px;border-radius:8px;'>**{res} ({g1}-{g2})**</div>", unsafe_allow_html=True)
-        st.markdown(f"<div style='background:#314265;color:#fff;padding:6px;border-radius:6px;'>Goals: You {g1} ‒ Opp {g2} | MVP: {mvp}</div>", unsafe_allow_html=True)
+        for club,ga,gb in [(MY_CLUB,g1,g2),(st.session_state.opp,g2,g1)]:
+            idx = dfst.index[dfst.Club==club][0]
+            if ga>gb: dfst.at[idx,"W"]+=1; dfst.at[idx,"Pts"]+=3
+            elif ga<gb: dfst.at[idx,"L"]+=1
+            else: dfst.at[idx,"D"]+=1; dfst.at[idx,"Pts"]+=1
+        st.session_state.stand = dfst
+        st.markdown(f"<div style='background:#192841;color:#eaf6ff;padding:8px;border-radius:8px;'>**{res} ({g1}-{g2})**</div>", unsafe_allow_html=True)
+        scorer = random.choice(st.session_state.starters)
+        mvp    = random.choice(st.session_state.starters)
+        st.markdown(f"<div style='background:#314265;color:#eaf6ff;padding:6px;border-radius:6px;'>Scorer: {scorer} | MVP: {mvp}</div>", unsafe_allow_html=True)
 
 # ==== 4. Scout ====
 with tabs[3]:
@@ -281,82 +224,69 @@ with tabs[3]:
     st.markdown(f"**Budget:** {fmt_money(st.session_state.budget)}")
     c1,c2 = st.columns(2)
     with c1:
-        if st.button(f"Refresh Senior ({st.session_state.refresh_s}/3)"):
-            if st.session_state.refresh_s<3:
-                st.session_state.scout_s = gen_players(5,False)
-                st.session_state.refresh_s += 1
-            else:
-                st.warning("Senior scout limit reached")
+        if st.button("Refresh Senior"):
+            st.session_state.scout_s = gen_players(5, False)
     with c2:
-        if st.button(f"Refresh Youth ({st.session_state.refresh_y}/3)"):
-            if st.session_state.refresh_y<3:
-                st.session_state.scout_y = gen_players(5,True)
-                st.session_state.refresh_y += 1
-            else:
-                st.warning("Youth scout limit reached")
-    # Senior候補
+        if st.button("Refresh Youth"):
+            st.session_state.scout_y = gen_players(5, True)
     if not st.session_state.scout_s.empty:
         st.markdown("#### Senior Candidates")
         st.markdown('<div class="mobile-scroll">', unsafe_allow_html=True)
         for i,row in st.session_state.scout_s.iterrows():
-            key=f"ss{i}"
-            cols = st.columns([1,3])
-            with cols[0]:
-                st.image(get_img(i+60), width=48)
-            with cols[1]:
-                st.write(f"**{row['Name']}**")
-                st.write(f"{NATIONS[row['Nat']]}｜{row['Pos']}｜{row['Age']}")
-                st.write(f"OVR:{row['OVR']}")
-                if st.button("Sign", key=key):
-                    if row["Name"] in st.session_state.senior["Name"].tolist():
-                        st.error("Already in squad")
-                    elif st.session_state.budget < row["Salary"]:
-                        st.error("Not enough budget")
-                    else:
-                        st.session_state.budget -= row["Salary"]
-                        st.session_state.senior = pd.concat(
-                            [st.session_state.senior, pd.DataFrame([row])],
-                            ignore_index=True
-                        )
-                        st.success(f"{row['Name']} signed!")
+            key=f"sign_s{i}"
+            st.markdown(f"""
+              <div class="player-card">
+                <img src="{get_img(i+60)}"><br>
+                <b>{row['Name']} {NATIONS[row['Nat']]}</b><br>
+                {row['Pos']}｜{row['Age']}｜OVR:{row['OVR']}<br>
+                Fee:{fmt_money(row['Fee'])}<br>
+                <button class="detail-btn" onclick="streamlit:runButton('{key}')">Sign</button>
+              </div>
+            """, unsafe_allow_html=True)
+            if st.button("", key=key):
+                if row["Name"] in st.session_state.senior["Name"].tolist():
+                    st.error("Already in squad")
+                elif st.session_state.budget < row["Fee"]:
+                    st.error("Not enough budget")
+                else:
+                    st.session_state.budget -= row["Fee"]
+                    st.session_state.senior = pd.concat([st.session_state.senior, pd.DataFrame([row])], ignore_index=True)
+                    st.success(f"Signed {row['Name']}!")
         st.markdown('</div>', unsafe_allow_html=True)
-    # Youth候補
     if not st.session_state.scout_y.empty:
         st.markdown("#### Youth Candidates")
         st.markdown('<div class="mobile-scroll">', unsafe_allow_html=True)
         for i,row in st.session_state.scout_y.iterrows():
-            key=f"sy{i}"
-            cols = st.columns([1,3])
-            with cols[0]:
-                st.image(get_img(i+80), width=48)
-            with cols[1]:
-                st.write(f"**{row['Name']}**")
-                st.write(f"{NATIONS[row['Nat']]}｜{row['Pos']}｜{row['Age']}")
-                st.write(f"OVR:{row['OVR']}")
-                if st.button("Sign", key=key):
-                    if row["Name"] in st.session_state.youth["Name"].tolist():
-                        st.error("Already in youth")
-                    elif st.session_state.budget < row["Salary"]:
-                        st.error("Not enough budget")
-                    else:
-                        st.session_state.budget -= row["Salary"]
-                        st.session_state.youth = pd.concat(
-                            [st.session_state.youth, pd.DataFrame([row])],
-                            ignore_index=True
-                        )
-                        st.success(f"{row['Name']} signed!")
+            key=f"sign_y{i}"
+            st.markdown(f"""
+              <div class="player-card">
+                <img src="{get_img(i+80)}"><br>
+                <b>{row['Name']} {NATIONS[row['Nat']]}</b><br>
+                {row['Pos']}｜{row['Age']}｜OVR:{row['OVR']}<br>
+                Fee:{fmt_money(row['Fee'])}<br>
+                <button class="detail-btn" onclick="streamlit:runButton('{key}')">Sign</button>
+              </div>
+            """, unsafe_allow_html=True)
+            if st.button("", key=key):
+                if row["Name"] in st.session_state.youth["Name"].tolist():
+                    st.error("Already in youth")
+                elif st.session_state.budget < row["Fee"]:
+                    st.error("Not enough budget")
+                else:
+                    st.session_state.budget -= row["Fee"]
+                    st.session_state.youth = pd.concat([st.session_state.youth, pd.DataFrame([row])], ignore_index=True)
+                    st.success(f"Signed {row['Name']}!")
         st.markdown('</div>', unsafe_allow_html=True)
 
 # ==== 5. Standings ====
 with tabs[4]:
     st.markdown('<div class="stage-label">Standings</div>', unsafe_allow_html=True)
-    dfst = st.session_state.stand
+    dfst = st.session_state.stand.sort_values("Pts", ascending=False).reset_index(drop=True)
+    dfst.index += 1
     styled = dfst.style.set_properties(**{
-        "background-color":"rgba(32,44,70,0.7)", "color":"white", "text-align":"center"
-    }).set_table_styles([{
-        "selector":"thead th", "props":[("background","rgba(32,44,70,0.9)"),("color","white")]
-    }])
-    st.dataframe(styled, height=300, use_container_width=True)
+        "background-color":"rgba(20,30,50,0.7)","color":"#fff","text-align":"center"
+    }).set_table_styles([{"selector":"thead","props":[("background","rgba(20,30,50,0.9)"),("color","#fff")]}])
+    st.dataframe(styled, use_container_width=True)
 
 # ==== 6. Save ====
 with tabs[5]:
@@ -364,4 +294,4 @@ with tabs[5]:
     if st.button("Save Data"): st.success("Data saved!")
     if st.button("Load Data"): st.success("Data loaded!")
 
-st.caption("2025年版：重複防止／トグル修正／国籍絵文字／列ソート対応 完全統合版")
+st.caption("2025年版：スカッド色紺／Players区切り／Scout毎回別生成／契約金Fee反映 完全版")
