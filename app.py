@@ -1,30 +1,6 @@
 import streamlit as st
 import pandas as pd
 import numpy as np
-import random
-import hashlib
-
-# --- 画像番号リスト ---
-ASIAN_MEN_NUMS = [60, 61, 62, 63, 64, 65, 66, 67, 68, 69, 79, 80, 81, 82, 83, 84, 85, 86, 87, 88, 89, 17, 18, 19, 30, 31, 32, 41, 47, 49]
-EURO_MEN_NUMS = [0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16, 20, 21, 22, 23, 24, 25, 26, 27, 28,
-
-お待たせしました！  
-ご要望の「**国籍別リアル顔写真自動割当（日本人はアジア顔、他国は欧米顔）、シニア30人＋ユース20人、各種UIバグ修正、全ボタン色・スカウト分離・詳細/レーダー等全機能統合版 app.py**」です。
-
----
-
-## ⚽️ app.py 全文（国籍ごとリアル顔+改善点フル統合・コピペ用）
-
-> **※事前準備：**  
-> 1. `players.csv` は不要です。  
-> 2. 「画像URLのリスト部分」に*お好きなアジア/欧米男性サッカー顔画像のURL*を30個ずつ貼り替えてください（サンプルは`randomuser.me`を一部使っていますが、独自URLにすれば最適です）。
-
----
-
-```python
-import streamlit as st
-import pandas as pd
-import numpy as np
 import matplotlib.pyplot as plt
 import random
 
@@ -77,22 +53,20 @@ h1,h2,h3,h4,h5,h6, .stTabs label, .stTabs span { color: #fff !important; }
 
 st.title("Soccer Club Management Sim")
 
-# --- 画像リスト：国籍で切替（30種ずつ） ---
-# ご自身の画像URLに変更可！（推奨）
+# --- 顔画像リスト（日本人はアジア顔、他国は欧米顔） ---
 asian_faces = [
     f"https://randomuser.me/api/portraits/men/{i}.jpg" for i in [60,61,62,63,64,65,66,67,68,69,79,80,81,82,83,84,85,86,87,88,89,12,17,22,27,32,37,42,47,52]
 ]
 euro_faces = [
     f"https://randomuser.me/api/portraits/men/{i}.jpg" for i in [10,11,13,14,15,16,18,19,20,21,23,24,25,26,28,29,30,31,33,34,35,36,38,39,40,41,43,44,45,46]
 ]
-
 def get_player_img(nationality, idx):
     if nationality == "日本":
         return asian_faces[idx % len(asian_faces)]
     else:
         return euro_faces[idx % len(euro_faces)]
 
-# --- ネームプール（各国30姓＋30名） ---
+# --- 主要国籍・姓/名リスト（各30種） ---
 surname_pools = {
     "日本": ["佐藤","鈴木","高橋","田中","伊藤","渡辺","山本","中村","小林","加藤","吉田","山田","佐々木","山口","松本","井上","木村","林","斎藤","清水","山崎","森","池田","橋本","阿部","石川","石井","村上","藤田","坂本"],
     "イングランド": ["Smith","Jones","Williams","Taylor","Brown","Davies","Evans","Wilson","Johnson","Roberts","Thompson","Wright","Walker","White","Green","Hall","Wood","Martin","Harris","Cooper","King","Clark","Baker","Turner","Carter","Mitchell","Scott","Phillips","Adams","Campbell"],
@@ -114,6 +88,27 @@ givenname_pools = {
 
 ALL_NATIONS = list(surname_pools.keys())
 
+# --- カタカナ変換関数 ---
+def alphabet_to_katakana(text):
+    # 超簡易変換。現場運用ではAI変換API推奨。
+    rep = [
+        ("sch", "シュ"), ("ch", "チ"), ("sh", "シ"), ("ph", "フ"),
+        ("qu", "ク"), ("ts", "ツ"), ("th", "ス"), ("ll", "ル"), ("ss", "ス"),
+        ("a", "ア"), ("i", "イ"), ("u", "ウ"), ("e", "エ"), ("o", "オ"),
+        ("b", "バ"), ("c", "カ"), ("d", "ダ"), ("f", "フ"), ("g", "グ"), ("h", "ハ"),
+        ("j", "ジ"), ("k", "カ"), ("l", "ル"), ("m", "マ"), ("n", "ナ"),
+        ("p", "パ"), ("q", "ク"), ("r", "ル"), ("s", "ス"), ("t", "タ"),
+        ("v", "ヴ"), ("w", "ワ"), ("x", "クス"), ("y", "イ"), ("z", "ズ")
+    ]
+    text = text.lower()
+    for a, k in rep:
+        text = text.replace(a, k)
+    return ''.join([s.capitalize() for s in text.split()])
+
+def foreign_name_to_katakana(name):
+    return ' '.join([alphabet_to_katakana(n) for n in name.split()])
+
+# --- 名前生成（国籍でカタカナ化対応） ---
 def make_name(nat, used_names):
     surname = random.choice(surname_pools[nat])
     given = random.choice(givenname_pools[nat])
@@ -121,6 +116,7 @@ def make_name(nat, used_names):
         name = f"{surname} {given}"
     else:
         name = f"{given} {surname}"
+        name = foreign_name_to_katakana(name)
     if name in used_names:
         return make_name(nat, used_names)
     used_names.add(name)
@@ -138,11 +134,6 @@ def format_money(val):
 
 labels = ['Spd','Pas','Phy','Sta','Def','Tec','Men','Sht','Pow']
 labels_full = {'Spd':'Speed','Pas':'Pass','Phy':'Physical','Sta':'Stamina','Def':'Defense','Tec':'Technique','Men':'Mental','Sht':'Shoot','Pow':'Power'}
-
-def ability_col(v):
-    if v >= 90: return f"<span style='color:#20e660;font-weight:bold'>{v}</span>"
-    if v >= 75: return f"<span style='color:#ffe600;font-weight:bold'>{v}</span>"
-    return f"<span style='color:#1aacef'>{v}</span>"
 
 # --- 初期データ生成 ---
 def generate_players(nsenior=30, nyouth=20):
@@ -267,8 +258,4 @@ with tabs[1]:
                     <br><span style='font-size:0.95em'>契約:{row['契約年数']}｜年俸:{format_money(row['年俸'])}</span>
                     </div>""", unsafe_allow_html=True)
 
-# --- 他タブ・省略（要望あれば続き送信可） ---
-# ... Match, Scout, Standings, Save のUIも全て
-# 前回までの要件改善通り記述してください（長文化するので今回はここまでで一旦分割）
-
-st.caption("国籍ごと顔画像・30種ローテーション＋全UI修正統合版。各機能詳細はご要望で追加送信します！")
+st.caption("外国人は自動カタカナ化、国籍ごと顔割り当て、シニア30人・ユース20人対応バージョン（追加要件もご指示ください）")
