@@ -6,7 +6,7 @@ import random
 
 st.set_page_config(page_title="Soccer Club Management Sim", layout="wide")
 
-# --- CSS/UIカスタム ---
+# --- CSS/UI ---
 st.markdown("""
 <style>
 body, .stApp { font-family: 'IPAexGothic','Meiryo',sans-serif; }
@@ -22,6 +22,13 @@ h1,h2,h3,h4,h5,h6, .stTabs label, .stTabs span, .stTabs button { color: #fff !im
     box-shadow:0 0 10px #23e9e733;
 }
 .stButton>button:active { background: #ffee99 !important; }
+input, textarea, .stTextInput>div>div>input {
+    background: #202c46 !important; color: #ffe !important; border-radius:8px; border: 1.7px solid #27e3b9;
+    font-size:1.06em; font-family:'IPAexGothic','Meiryo',sans-serif; padding: 7px;
+}
+input:focus, textarea:focus {
+    border:2.2px solid #f7df70 !important;
+}
 .red-message { color:#ff3a3a; font-weight:bold; font-size:1.09em; padding:7px 0 2px 0;}
 .player-card {
   background: #fafdfecc;
@@ -51,7 +58,10 @@ h1,h2,h3,h4,h5,h6, .stTabs label, .stTabs span, .stTabs button { color: #fff !im
 }
 .stage-label { background: #222b3c88; color: #fff; border-radius: 10px; padding: 2px 12px; font-size:1.08em; font-weight:bold; margin-bottom:9px;}
 .position-label { color: #fff !important; background:#1b4f83; border-radius:7px; padding:1px 8px; font-weight:bold; margin:0 2px;}
-.stDataFrame {background: #202c46cc !important; color: #fff !important;}
+.stDataFrame {background: #253457ee !important; color: #fff !important;}
+.stDataFrame th { background: #263353dd !important; color:#ffe900 !important;}
+.scout-btn {background:#44cbfd; color:#222; font-weight:bold; border-radius:9px; padding:8px 17px; margin-top:4px; margin-bottom:6px;}
+.match-btn {background:#1feaae; color:#222; font-weight:bold; border-radius:9px; padding:8px 17px; margin-top:7px; margin-bottom:7px;}
 </style>
 """, unsafe_allow_html=True)
 
@@ -158,13 +168,13 @@ if "df_senior" not in st.session_state or "df_youth" not in st.session_state:
     used_names = set()
     st.session_state.df_senior = pd.DataFrame(generate_players(30, MY_CLUB, used_names))
     st.session_state.df_youth = pd.DataFrame(generate_youth(20, MY_CLUB, used_names))
+if "show_detail" not in st.session_state:
+    st.session_state.show_detail = None
+if "current_week" not in st.session_state:
+    st.session_state.current_week = 1
 
 df_senior = st.session_state.df_senior
 df_youth = st.session_state.df_youth
-
-# 詳細管理
-if "show_detail" not in st.session_state:
-    st.session_state.show_detail = None
 
 # --- タブ ---
 tabs = st.tabs(["Senior", "Youth", "Match", "Scout", "Standings", "Save"])
@@ -194,17 +204,15 @@ with tabs[0]:
                 <br><span class='position-label'>{row['Pos']}</span> / {row['Age']}
                 <br><span style='font-size:0.95em'>Contract:{row['Contract']}｜Salary:{format_money(row['Salary'])}</span>
                 </div>""", unsafe_allow_html=True)
-            # --- 詳細クリック時のみ即時表示 ---
             if btn:
                 st.session_state.show_detail = ("senior", idx)
-        # 表示判定
         if st.session_state.show_detail == ("senior", idx):
             ability = [row[l] for l in labels]
             ability += ability[:1]
             angles = np.linspace(0, 2 * np.pi, len(labels)+1)
             fig, ax = plt.subplots(figsize=(2.6,2.6), subplot_kw=dict(polar=True))
-            ax.plot(angles, ability, linewidth=2, linestyle='solid')
-            ax.fill(angles, ability, alpha=0.38)
+            ax.plot(angles, ability, linewidth=2, linestyle='solid', color="#1feaae")
+            ax.fill(angles, ability, alpha=0.38, color="#3be6c8")
             ax.set_yticklabels([])
             ax.set_xticks(angles[:-1])
             ax.set_xticklabels([labels_full[k] for k in labels], color="w")
@@ -252,8 +260,8 @@ with tabs[1]:
                 ability += ability[:1]
                 angles = np.linspace(0, 2 * np.pi, len(labels)+1)
                 fig, ax = plt.subplots(figsize=(2.5,2.5), subplot_kw=dict(polar=True))
-                ax.plot(angles, ability, linewidth=2, linestyle='solid')
-                ax.fill(angles, ability, alpha=0.38)
+                ax.plot(angles, ability, linewidth=2, linestyle='solid', color="#e3a")
+                ax.fill(angles, ability, alpha=0.38, color="#e3a")
                 ax.set_yticklabels([])
                 ax.set_xticks(angles[:-1])
                 ax.set_xticklabels([labels_full[k] for k in labels], color="w")
@@ -267,23 +275,30 @@ with tabs[1]:
 
 # ========== 3. Match Tab ==========
 with tabs[2]:
-    st.markdown(f'<div class="stage-label">Match Simulation - Week <b style="color:#ffe34a;">1</b></div>', unsafe_allow_html=True)
+    st.markdown(f'<div class="stage-label">Match Simulation - Week <b style="color:#ffe34a;">{st.session_state.current_week}</b></div>', unsafe_allow_html=True)
     if st.button("Auto Starting XI", key="auto_xi", help="Best squad by OVR"):
-        # スタメン自動選出
         st.success("Auto Starting XI selected (サンプル)")
-    # 手動で選出なども拡張可能
+    # 手動選択部分（サンプル用）を用意
+    st.text_input("手動選択（名前またはPosを入力可・ダミー）", key="manual_sel", value="", help="実装例：選手名かポジション名入力でフィルタ")
 
 # ========== 4. Scout Tab ==========
 with tabs[3]:
     st.markdown('<div class="stage-label">Scout Players</div>', unsafe_allow_html=True)
-    if st.button("Scout New Senior", key="scout_senior", help="Find a new senior player"):
-        st.session_state.df_senior = st.session_state.df_senior.append(
-            generate_players(1, MY_CLUB, set(st.session_state.df_senior['Name'])), ignore_index=True)
-        st.success("New senior player scouted!")
-    if st.button("Scout New Youth", key="scout_youth", help="Find a new youth player"):
-        st.session_state.df_youth = st.session_state.df_youth.append(
-            generate_youth(1, MY_CLUB, set(st.session_state.df_youth['Name'])), ignore_index=True)
-        st.success("New youth player scouted!")
+    col1, col2 = st.columns(2)
+    with col1:
+        if st.button("Scout New Senior", key="scout_senior", help="Find a new senior player", use_container_width=True):
+            st.session_state.df_senior = pd.concat([
+                st.session_state.df_senior,
+                pd.DataFrame(generate_players(1, MY_CLUB, set(st.session_state.df_senior['Name'])))
+            ], ignore_index=True)
+            st.success("New senior player scouted!")
+    with col2:
+        if st.button("Scout New Youth", key="scout_youth", help="Find a new youth player", use_container_width=True):
+            st.session_state.df_youth = pd.concat([
+                st.session_state.df_youth,
+                pd.DataFrame(generate_youth(1, MY_CLUB, set(st.session_state.df_youth['Name'])))
+            ], ignore_index=True)
+            st.success("New youth player scouted!")
 
 # ========== 5. Standings Tab ==========
 with tabs[4]:
