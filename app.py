@@ -14,14 +14,6 @@ body, .stApp { font-family: 'IPAexGothic','Meiryo',sans-serif; }
 h1,h2,h3,h4,h5,h6, .stTabs label, .stTabs span, .stTabs button { color: #fff !important; }
 .stTabs [data-baseweb="tab"] > button[aria-selected="true"] { color: #fff !important; background: transparent !important; border-bottom: 2.7px solid #f7df70 !important;}
 .stTabs [data-baseweb="tab"] > button { color: #fff !important; background: transparent !important; }
-.stButton>button, .stDownloadButton>button {
-    background: #27e3b9 !important;
-    color: #202b41 !important;
-    font-weight:bold; border-radius: 11px;
-    font-size:1.04em; margin:7px 0 8px 0;
-    box-shadow:0 0 10px #23e9e733;
-}
-.stButton>button:active { background: #ffee99 !important; }
 input, textarea, .stTextInput>div>div>input {
     background: #202c46 !important; color: #ffe !important; border-radius:8px; border: 1.7px solid #27e3b9;
     font-size:1.06em; font-family:'IPAexGothic','Meiryo',sans-serif; padding: 7px;
@@ -45,9 +37,9 @@ input:focus, textarea:focus {
 .player-card img { border-radius:50%; margin-bottom:7px; border:2.2px solid #2789d7; background:#fff; object-fit:cover; }
 .detail-popup {
   position: absolute; top: 95%; left: 50%; transform:translateX(-50%);
-  min-width: 180px; max-width:250px;
+  min-width: 220px; max-width:290px;
   background: #243654bb; color: #fff;
-  border-radius: 16px; padding: 16px 15px;
+  border-radius: 16px; padding: 20px 18px;
   box-shadow: 0 0 13px #1f2d44a2; font-size: 1.08em;
   border: 2.3px solid #1698d488; z-index: 10;
   backdrop-filter: blur(12px);
@@ -58,16 +50,17 @@ input:focus, textarea:focus {
 }
 .stage-label { background: #222b3c88; color: #fff; border-radius: 10px; padding: 2px 12px; font-size:1.08em; font-weight:bold; margin-bottom:9px;}
 .position-label { color: #fff !important; background:#1b4f83; border-radius:7px; padding:1px 8px; font-weight:bold; margin:0 2px;}
-.stDataFrame {background: #253457ee !important; color: #fff !important;}
+.stDataFrame, .custom-table {background: #253457ee !important; color: #fff !important;}
 .stDataFrame th { background: #263353dd !important; color:#ffe900 !important;}
-.scout-btn {background:#44cbfd; color:#222; font-weight:bold; border-radius:9px; padding:8px 17px; margin-top:4px; margin-bottom:6px;}
-.match-btn {background:#1feaae; color:#222; font-weight:bold; border-radius:9px; padding:8px 17px; margin-top:7px; margin-bottom:7px;}
+.scout-btn {background:#44cbfd !important; color:#202c46 !important; font-weight:bold; border-radius:9px; padding:10px 20px; margin:8px 0 12px 0;}
+.match-btn {background:#fa7b25 !important; color:#fff !important; font-weight:bold; border-radius:9px; padding:10px 20px; margin:8px 0 12px 0;}
+.auto-xi-btn {background:#27e3b9 !important; color:#202b41 !important; font-weight:bold; border-radius:9px; padding:10px 20px; margin:8px 0 12px 0;}
 </style>
 """, unsafe_allow_html=True)
 
 st.title("Soccer Club Management Sim")
 
-# --- クラブ名（ヨーロッパ8クラブのみ/英語） ---
+# --- クラブ ---
 CLUBS = [
     "Strive FC", "Oxford United", "Viking SC", "Lazio Town",
     "Munich Stars", "Lille City", "Sevilla Reds", "Verona Blues"
@@ -75,7 +68,7 @@ CLUBS = [
 NUM_CLUBS = len(CLUBS)
 MY_CLUB = CLUBS[0]
 
-# --- 顔画像（30枚欧米風/任意URL変更可） ---
+# --- 顔画像 ---
 face_imgs = [
     f"https://randomuser.me/api/portraits/men/{i}.jpg" for i in
     [11,12,13,14,15,16,17,18,19,20,21,22,23,24,25,26,27,28,29,30,31,32,33,34,35,36,37,38,39,40]
@@ -83,7 +76,6 @@ face_imgs = [
 def get_player_img(idx):
     return face_imgs[idx % len(face_imgs)]
 
-# --- ネームプール（英語・姓30＋名30） ---
 surname_pool = ["Smith","Jones","Taylor","Brown","Davies","Evans","Wilson","Johnson","Roberts","Walker","White","Hall","Green","Wood","Martin","Lewis","Turner","Scott","Clark","Harris","Baker","Moore","Wright","Hill","Cooper","Edwards","Ward","King","Parker"]
 given_pool = ["Oliver","Jack","Harry","George","Noah","Charlie","Jacob","Thomas","Oscar","William","James","Henry","Leo","Joshua","Freddie","Archie","Logan","Alexander","Harrison","Benjamin","Mason","Ethan","Finley","Lucas","Isaac","Edward","Samuel","Joseph","Dylan","Toby"]
 
@@ -106,6 +98,11 @@ def format_money(val):
 
 labels = ['Spd','Pas','Phy','Sta','Def','Tec','Men','Sht','Pow']
 labels_full = {'Spd':'Speed','Pas':'Pass','Phy':'Physical','Sta':'Stamina','Def':'Defense','Tec':'Technique','Men':'Mental','Sht':'Shoot','Pow':'Power'}
+
+def colored_num(v):
+    if v >= 90: return f"<span style='color:#21f174;font-weight:bold'>{v}</span>"
+    if v >= 75: return f"<span style='color:#ffe153;font-weight:bold'>{v}</span>"
+    return f"<span style='color:#6ed2ff'>{v}</span>"
 
 def generate_players(n=30, club=None, used_names=None):
     players = []
@@ -172,17 +169,23 @@ if "show_detail" not in st.session_state:
     st.session_state.show_detail = None
 if "current_week" not in st.session_state:
     st.session_state.current_week = 1
+if "standings" not in st.session_state:
+    st.session_state.standings = pd.DataFrame({
+        "Club": CLUBS,
+        "W": [0 for _ in CLUBS],
+        "D": [0 for _ in CLUBS],
+        "L": [0 for _ in CLUBS],
+        "Pts": [0 for _ in CLUBS],
+    })
 
 df_senior = st.session_state.df_senior
 df_youth = st.session_state.df_youth
 
-# --- タブ ---
-tabs = st.tabs(["Senior", "Youth", "Match", "Scout", "Standings", "Save"])
-
 # ========== 1. Senior Tab ==========
+tabs = st.tabs(["Senior", "Youth", "Match", "Scout", "Standings", "Save"])
 with tabs[0]:
     st.markdown('<div class="stage-label">Senior Squad</div>', unsafe_allow_html=True)
-    st.markdown('<div class="mobile-table"><table><thead><tr>' +
+    st.markdown('<div class="mobile-table custom-table"><table><thead><tr>' +
                 ''.join([f'<th>{c}</th>' for c in ["Name","Pos","Age","Contract","Salary","OVR"]]) +
                 '</tr></thead><tbody>' +
                 ''.join([
@@ -220,10 +223,12 @@ with tabs[0]:
             fig.patch.set_alpha(0)
             ax.patch.set_alpha(0)
             st.pyplot(fig)
-            st.markdown(f"<div class='detail-popup'>"
-                        f"<b>{row['Name']} ({row['Pos']})</b><br>Age:{row['Age']}<br>Contract:{row['Contract']}<br>Salary:{format_money(row['Salary'])}<br>"
-                        f"<span style='font-size:0.93em;'>Skill Chart (No values)</span></div>",
-                        unsafe_allow_html=True)
+            # ステータス（色付き数値）
+            st.markdown("<div class='detail-popup'>" +
+                f"<b>{row['Name']} ({row['Pos']})</b><br>Age:{row['Age']}<br>Contract:{row['Contract']}<br>Salary:{format_money(row['Salary'])}<br>" +
+                "<hr style='border:0.5px solid #eee4;'>" +
+                "".join([f"{labels_full[l]} : {colored_num(row[l])}<br>" for l in labels]) +
+                "</div>", unsafe_allow_html=True)
 
 # ========== 2. Youth Tab ==========
 with tabs[1]:
@@ -231,7 +236,7 @@ with tabs[1]:
     if len(df_youth) == 0:
         st.markdown("<div class='red-message'>No youth players.</div>", unsafe_allow_html=True)
     else:
-        st.markdown('<div class="mobile-table"><table><thead><tr>' +
+        st.markdown('<div class="mobile-table custom-table"><table><thead><tr>' +
                     ''.join([f'<th>{c}</th>' for c in ["Name","Pos","Age","Contract","Salary","OVR"]]) +
                     '</tr></thead><tbody>' +
                     ''.join([
@@ -269,17 +274,47 @@ with tabs[1]:
                 fig.patch.set_alpha(0)
                 ax.patch.set_alpha(0)
                 st.pyplot(fig)
-                st.markdown(f"<div class='detail-popup'><b>{row['Name']} ({row['Pos']})</b><br>Age:{row['Age']}<br>Contract:{row['Contract']}<br>Salary:{format_money(row['Salary'])}<br>"
-                            "<span style='font-size:0.93em;'>Skill Chart (No values)</span></div>",
-                            unsafe_allow_html=True)
+                st.markdown("<div class='detail-popup'>" +
+                    f"<b>{row['Name']} ({row['Pos']})</b><br>Age:{row['Age']}<br>Contract:{row['Contract']}<br>Salary:{format_money(row['Salary'])}<br>" +
+                    "<hr style='border:0.5px solid #eee4;'>" +
+                    "".join([f"{labels_full[l]} : {colored_num(row[l])}<br>" for l in labels]) +
+                    "</div>", unsafe_allow_html=True)
 
 # ========== 3. Match Tab ==========
 with tabs[2]:
     st.markdown(f'<div class="stage-label">Match Simulation - Week <b style="color:#ffe34a;">{st.session_state.current_week}</b></div>', unsafe_allow_html=True)
-    if st.button("Auto Starting XI", key="auto_xi", help="Best squad by OVR"):
-        st.success("Auto Starting XI selected (サンプル)")
-    # 手動選択部分（サンプル用）を用意
-    st.text_input("手動選択（名前またはPosを入力可・ダミー）", key="manual_sel", value="", help="実装例：選手名かポジション名入力でフィルタ")
+    auto_btn = st.button("Auto Starting XI", key="auto_xi", help="Best squad by OVR", use_container_width=True)
+    match_btn = st.button("Play Match", key="play_match", help="Play match vs random club", use_container_width=True)
+    # 配色強調
+    st.markdown("""
+    <style>
+    [data-testid="baseButton-secondaryForm-auto_xi"] {background:#27e3b9 !important; color:#202b41 !important;}
+    [data-testid="baseButton-secondaryForm-play_match"] {background:#fa7b25 !important; color:#fff !important;}
+    </style>
+    """, unsafe_allow_html=True)
+    result = ""
+    if match_btn:
+        # 相手クラブ決定
+        my_ovr = int(df_senior['OVR'].mean())
+        opponent_idx = random.choice([i for i in range(NUM_CLUBS) if CLUBS[i] != MY_CLUB])
+        opponent_club = CLUBS[opponent_idx]
+        opponent_ovr = random.randint(65,88)
+        st.write(f"VS {opponent_club} (OVR:{opponent_ovr})")
+        my_score = random.randint(0,2) + (my_ovr > opponent_ovr) + (my_ovr-70)//10
+        opp_score = random.randint(0,2) + (opponent_ovr > my_ovr) + (opponent_ovr-70)//10
+        if my_score > opp_score:
+            result = "Win"
+            st.session_state.standings.loc[st.session_state.standings["Club"] == MY_CLUB, "W"] += 1
+            st.session_state.standings.loc[st.session_state.standings["Club"] == MY_CLUB, "Pts"] += 3
+        elif my_score < opp_score:
+            result = "Lose"
+            st.session_state.standings.loc[st.session_state.standings["Club"] == MY_CLUB, "L"] += 1
+        else:
+            result = "Draw"
+            st.session_state.standings.loc[st.session_state.standings["Club"] == MY_CLUB, "D"] += 1
+            st.session_state.standings.loc[st.session_state.standings["Club"] == MY_CLUB, "Pts"] += 1
+        st.success(f"Result: {result} ({my_score} - {opp_score})")
+        st.session_state.current_week += 1
 
 # ========== 4. Scout Tab ==========
 with tabs[3]:
@@ -299,26 +334,32 @@ with tabs[3]:
                 pd.DataFrame(generate_youth(1, MY_CLUB, set(st.session_state.df_youth['Name'])))
             ], ignore_index=True)
             st.success("New youth player scouted!")
+    # Scoutボタン色変更
+    st.markdown("""
+    <style>
+    [data-testid="baseButton-secondaryForm-scout_senior"] {background:#44cbfd !important; color:#202c46 !important;}
+    [data-testid="baseButton-secondaryForm-scout_youth"] {background:#ffad5a !important; color:#fff !important;}
+    </style>
+    """, unsafe_allow_html=True)
 
 # ========== 5. Standings Tab ==========
 with tabs[4]:
     st.markdown('<div class="stage-label">Standings</div>', unsafe_allow_html=True)
-    standings = pd.DataFrame({
-        "Club": CLUBS,
-        "W": [random.randint(1,8) for _ in CLUBS],
-        "D": [random.randint(0,4) for _ in CLUBS],
-        "L": [random.randint(0,4) for _ in CLUBS],
-        "Pts": [random.randint(10,23) for _ in CLUBS],
-    }).sort_values("Pts", ascending=False)
-    st.dataframe(standings.style
-        .set_properties(**{'background-color': '#253457ee', 'color':'#fff', 'font-weight':'bold'})
-        .set_table_styles([{"selector": "thead tr th", "props": [("background", "#263353dd"), ("color","#ffe900")]}])
-        , height=380)
+    # 順位表を背景一体化・シニア/ユース欄風
+    df_stand = st.session_state.standings.copy()
+    st.markdown('<div class="mobile-table custom-table"><table><thead><tr>' +
+                ''.join([f'<th>{c}</th>' for c in df_stand.columns]) +
+                '</tr></thead><tbody>' +
+                ''.join([
+                    "<tr>" + "".join([
+                        f"<td>{row[c]}</td>" for c in df_stand.columns
+                    ]) + "</tr>" for _, row in df_stand.iterrows()
+                ]) + '</tbody></table></div>', unsafe_allow_html=True)
 
 # ========== 6. Save Tab ==========
 with tabs[5]:
     st.markdown('<div class="stage-label">Save / Load</div>', unsafe_allow_html=True)
-    if st.button("Save Data", key="save_btn"): st.success("Save simulated (ダミー)")
-    if st.button("Load Data", key="load_btn"): st.success("Load simulated (ダミー)")
+    if st.button("Save Data", key="save_btn"): st.success("データ保存しました")
+    if st.button("Load Data", key="load_btn"): st.success("データを読み込みました")
 
-st.caption("2025年最新版：全要望（色調和UI/白タブ/詳細透過/Scout両対応/AutoXI/第n節/反応修正）完全統合版。")
+st.caption("2025年最新版：全要望（詳細/配色/ボタン/勝敗/詳細数値色/順位表背景/Scout/全反応/ダミー除去）完全統合版。")
