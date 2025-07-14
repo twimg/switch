@@ -5,11 +5,11 @@ import matplotlib.pyplot as plt
 import random
 
 # --- ページ設定 ---
-st.set_page_config(page_title="KICK & BUILD", layout="wide")
+st.set_page_config(page_title="Soccer Club Management Sim", layout="wide")
 random.seed(42)
 np.random.seed(42)
 
-# --- CSS/UIカスタム ---
+# --- CSSカスタム ---
 st.markdown("""
 <style>
 body, .stApp { font-family:'IPAexGothic','Meiryo',sans-serif; }
@@ -30,10 +30,6 @@ h1,h2,h3,h4,h5,h6 { color:#fff!important; }
 .player-card img {
   border-radius:50%; width:64px; height:64px; object-fit:cover;
 }
-.detail-btn {
-  background:#ffe34a; color:#132346; border:none;
-  padding:4px 8px; border-radius:6px; margin-top:6px; cursor:pointer;
-}
 .detail-popup {
   position:absolute; top:100%; left:50%; transform:translateX(-50%);
   background:rgba(36,54,84,0.9); color:#fff; padding:12px; border-radius:10px;
@@ -47,23 +43,30 @@ h1,h2,h3,h4,h5,h6 { color:#fff!important; }
 .stage-label { background:#222b3c88; color:#fff; padding:6px 12px; border-radius:8px; display:inline-block; margin-bottom:8px;}
 .red-message { color:#f55!important; }
 .stDataFrame {background:rgba(20,30,50,0.7)!important; color:#fff!important;}
-.position-label { color:#fff!important; background:#1b4f83; border-radius:4px; padding:2px 6px;}
-.autoxi-btn { background:#ffe34a!important; color:#202b41!important; }
 </style>
 """, unsafe_allow_html=True)
 
-st.title("KICK & BUILD")
+st.title("Soccer Club Management Sim")
 
 # --- 定数 ---
 CLUBS = ["Strive FC","Oxford Utd","Viking SC","Lazio Town",
          "Munich Stars","Lille City","Sevilla Reds","Verona Blues"]
 MY_CLUB = CLUBS[0]
+# 国籍絵文字
 NATIONS = {
-    "England":"🇬🇧","Germany":"🇩🇪","Italy":"🇮🇹","Spain":"🇪🇸",
+    "United Kingdom":"🇬🇧","Germany":"🇩🇪","Italy":"🇮🇹","Spain":"🇪🇸",
     "France":"🇫🇷","Brazil":"🇧🇷","Netherlands":"🇳🇱","Portugal":"🇵🇹"
 }
 
-# --- 画像 ---
+# --- 代理人システム ---
+AGENTS = [
+    {"name":"Grayman","type":"交渉強気型","face":"🕵️","mood":"😐普通"},
+    {"name":"Silvia","type":"条件重視型","face":"👤","mood":"🙂やや良好"},
+    {"name":"Cobra","type":"高額要求型","face":"👥","mood":"😠不機嫌"},
+    {"name":"Artemis","type":"若手推し型","face":"🕶️","mood":"😊好調"},
+]
+
+# --- 顔画像（欧米風／任意URL変更可）---
 face_imgs = [f"https://randomuser.me/api/portraits/men/{i}.jpg" for i in range(10,50)]
 def get_img(i): return face_imgs[i % len(face_imgs)]
 
@@ -76,12 +79,12 @@ given   = ["Oliver","Jack","Harry","George","Noah","Charlie","Jacob","Thomas","O
            "Mason","Ethan","Finley","Lucas","Isaac","Edward","Samuel","Joseph","Dylan","Toby"]
 def make_name(used):
     while True:
-        n=f"{random.choice(given)} {random.choice(surname)}"
+        n = f"{random.choice(given)} {random.choice(surname)}"
         if n not in used:
             used.add(n)
             return n
 
-# --- フォーマット ---
+# --- フォーマット関数 ---
 def fmt_money(v):
     if v>=1_000_000: return f"{v//1_000_000}m€"
     if v>=1_000:     return f"{v//1_000}k€"
@@ -93,23 +96,28 @@ labels_full = {'Spd':'Speed','Pas':'Pass','Phy':'Physical','Sta':'Stamina',
 
 # --- データ生成 ---
 def gen_players(n,youth=False):
-    used=set()
-    lst=[]
+    used = set()
+    lst = []
     for i in range(n):
-        name=make_name(used)
-        stats={l:random.randint(52 if youth else 60,82 if youth else 90) for l in labels}
-        ovr=int(np.mean(list(stats.values())))
+        name = make_name(used)
+        stats = {l:random.randint(52 if youth else 60,82 if youth else 90) for l in labels}
+        ovr = int(np.mean(list(stats.values())))
+        agent = random.choice(AGENTS)
         lst.append({
-            "Name":name,
-            "Nat":random.choice(list(NATIONS.keys())),
-            "Pos":random.choice(["GK","DF","MF","FW"]),
-            "Age":random.randint(15 if youth else 18,18 if youth else 34),
+            "Name": name,
+            "Nat": random.choice(list(NATIONS.keys())),
+            "Pos": random.choice(["GK","DF","MF","FW"]),
+            "Age": random.randint(15 if youth else 18,18 if youth else 34),
             **stats,
-            "Salary":random.randint(30_000 if youth else 120_000,
-                                   250_000 if youth else 1_200_000),
-            "Contract":random.randint(1,2 if youth else 3),
-            "OVR":ovr,
-            "Youth":youth
+            "Salary": random.randint(30_000 if youth else 120_000,
+                                     250_000 if youth else 1_200_000),
+            "Contract": random.randint(1,2 if youth else 3),
+            "OVR": ovr,
+            "Youth": youth,
+            "AgentName": agent["name"],
+            "AgentType": agent["type"],
+            "AgentFace": agent["face"],
+            "AgentMood": agent["mood"],
         })
     return pd.DataFrame(lst)
 
@@ -145,18 +153,10 @@ with tabs[0]:
     st.markdown('<div class="stage-label">Senior Squad</div>', unsafe_allow_html=True)
     df1 = st.session_state.senior.copy()
     df1["Nat"] = df1["Nat"].map(NATIONS)
-    # 旧HTMLテーブル表示
-    st.markdown('<div class="mobile-table"><table><thead><tr>' +
-                ''.join([f'<th>{c}</th>' for c in ["Name","Nat","Pos","Age","Contract","Salary","OVR"]]) +
-                '</tr></thead><tbody>' +
-                ''.join([
-                    "<tr>" + "".join([
-                        f"<td>{row['Name']}</td><td>{row['Nat']}</td>"
-                        f"<td>{row['Pos']}</td><td>{row['Age']}</td>"
-                        f"<td>{row['Contract']}</td><td>{fmt_money(row['Salary'])}</td>"
-                        f"<td>{row['OVR']}</td>"
-                    ]) + "</tr>" for _, row in df1.iterrows()
-                ]) + '</tbody></table></div>', unsafe_allow_html=True)
+    # テーブル（昔の仕様）＋検索
+    st.dataframe(df1[["Name","Nat","Pos","Age","Contract","Salary","OVR"]]
+                 .assign(Salary=df1["Salary"].map(fmt_money)),
+                 use_container_width=True)
     st.markdown("---")
     st.markdown("#### Players")
     st.markdown('<div class="mobile-scroll">', unsafe_allow_html=True)
@@ -166,9 +166,9 @@ with tabs[0]:
         with cols[0]:
             st.image(get_img(i), width=48)
         with cols[1]:
-            st.write(f"**{row['Name']}**")
-            st.write(f"{row['Nat']}｜{row['Pos']}｜Age:{row['Age']}")
-            st.write(f"OVR:{row['OVR']}")
+            st.write(f"**{row['Name']}** ({row['Age']})")
+            st.write(f"{row['Nat']} ｜ {row['Pos']} ｜ Contract:{row['Contract']} ｜ {fmt_money(row['Salary'])}")
+            st.write(f"OVR:{row['OVR']}  Agent: {row['AgentFace']} {row['AgentName']}")
             if st.button("Detail", key=key):
                 st.session_state.detail = None if st.session_state.detail==key else key
         if st.session_state.detail == key:
@@ -184,7 +184,9 @@ with tabs[0]:
                 f"<span style='color:{'#20e660' if row[l]>=90 else '#ffe600' if row[l]>=75 else '#1aacef'}'>{l}:{row[l]}</span><br>"
                 for l in labels
             )
-            st.markdown(f"<div class='detail-popup'>{stats}</div>", unsafe_allow_html=True)
+            agent_info = f"{row['AgentFace']} {row['AgentName']} ({row['AgentType']})  機嫌:{row['AgentMood']}"
+            st.markdown(f"<div class='detail-popup'>{stats}<hr>{agent_info}</div>",
+                        unsafe_allow_html=True)
     st.markdown('</div>', unsafe_allow_html=True)
 
 # ==== 2. Youth ====
@@ -195,17 +197,9 @@ with tabs[1]:
     if df2.empty:
         st.markdown("<div class='red-message'>No youth players.</div>", unsafe_allow_html=True)
     else:
-        st.markdown('<div class="mobile-table"><table><thead><tr>' +
-                    ''.join([f'<th>{c}</th>' for c in ["Name","Nat","Pos","Age","Contract","Salary","OVR"]]) +
-                    '</tr></thead><tbody>' +
-                    ''.join([
-                        "<tr>" + "".join([
-                            f"<td>{row['Name']}</td><td>{row['Nat']}</td>"
-                            f"<td>{row['Pos']}</td><td>{row['Age']}</td>"
-                            f"<td>{row['Contract']}</td><td>{fmt_money(row['Salary'])}</td>"
-                            f"<td>{row['OVR']}</td>"
-                        ]) + "</tr>" for _, row in df2.iterrows()
-                    ]) + '</tbody></table></div>', unsafe_allow_html=True)
+        st.dataframe(df2[["Name","Nat","Pos","Age","Contract","Salary","OVR"]]
+                     .assign(Salary=df2["Salary"].map(fmt_money)),
+                     use_container_width=True)
         st.markdown("---")
         st.markdown("#### Players")
         st.markdown('<div class="mobile-scroll">', unsafe_allow_html=True)
@@ -215,9 +209,9 @@ with tabs[1]:
             with cols[0]:
                 st.image(get_img(i+30), width=48)
             with cols[1]:
-                st.write(f"**{row['Name']}**")
-                st.write(f"{row['Nat']}｜{row['Pos']}｜Age:{row['Age']}")
-                st.write(f"OVR:{row['OVR']}")
+                st.write(f"**{row['Name']}** ({row['Age']})")
+                st.write(f"{row['Nat']} ｜ {row['Pos']} ｜ Contract:{row['Contract']} ｜ {fmt_money(row['Salary'])}")
+                st.write(f"OVR:{row['OVR']}  Agent: {row['AgentFace']} {row['AgentName']}")
                 if st.button("Detail", key=key):
                     st.session_state.detail = None if st.session_state.detail==key else key
             if st.session_state.detail == key:
@@ -233,7 +227,9 @@ with tabs[1]:
                     f"<span style='color:{'#20e660' if row[l]>=90 else '#ffe600' if row[l]>=75 else '#1aacef'}'>{l}:{row[l]}</span><br>"
                     for l in labels
                 )
-                st.markdown(f"<div class='detail-popup'>{stats}</div>", unsafe_allow_html=True)
+                agent_info = f"{row['AgentFace']} {row['AgentName']} ({row['AgentType']})  機嫌:{row['AgentMood']}"
+                st.markdown(f"<div class='detail-popup'>{stats}<hr>{agent_info}</div>",
+                            unsafe_allow_html=True)
         st.markdown('</div>', unsafe_allow_html=True)
 
 # ==== 3. Match ====
@@ -241,23 +237,56 @@ with tabs[2]:
     st.markdown('<div class="stage-label">Match Simulation ‒ Week 1</div>', unsafe_allow_html=True)
     st.write(f"**Your Club:** {MY_CLUB}  vs  **Opponent:** {st.session_state.opp}")
     formation = st.selectbox("Formation",["4-4-2","4-3-3","3-5-2"])
-    if st.button("Auto Starting XI", key="auto_xi", help="Best squad by OVR"):
-        # FW→MF→DF→GK 順に11名選出
-        df = st.session_state.senior.copy()
-        df = df.sort_values("OVR", ascending=False)
-        sel = df.head(11)
-        order = {"FW":0,"MF":1,"DF":2,"GK":3}
-        sel = sel.assign(_ord=sel["Pos"].map(order)).sort_values("_ord")
-        st.session_state.starters = sel["Name"].tolist()
-    # 縦並び表示
+    if st.button("Auto Starting XI", key="auto_xi"):
+        st.session_state.starters = st.session_state.senior.nlargest(11,"OVR")["Name"].tolist()
+    # フォーメーション図（縦配置）
     if st.session_state.starters:
-        st.markdown("#### Starting XI")
-        for nm in st.session_state.starters:
-            row = st.session_state.senior[st.session_state.senior["Name"]==nm].iloc[0]
-            st.write(f"- **{nm}** ({row['Pos']}, Age:{row['Age']})")
-    if st.button("Kickoff!", key="kick"):
-        # （省略：結果処理は既存ロジックをそのまま流用してください）
-        st.success("Match simulated and standings updated.")
+        coords = {
+            "4-4-2":([1],[3,5,7,9],[3,5,7,9],[4,6]),
+            "4-3-3":([1],[3,5,7,9],[4,5,6],[3,6,9]),
+            "3-5-2":([1],[4,5,6],[3,5,7,9],[4,8]),
+        }
+        gk,def4,mid,fw = coords[formation]
+        fig,ax = plt.subplots(figsize=(3,5))
+        ax.set_xlim(0,12); ax.set_ylim(0,14); ax.axis('off')
+        names = st.session_state.starters; idx=0
+        ax.text(6,1,names[idx],ha='center',color='yellow',weight='bold'); idx+=1
+        for x in def4:
+            ax.text(x,4,names[idx].split()[1],ha='center',color='white'); idx+=1
+        for x in mid:
+            ax.text(x,7,names[idx].split()[1],ha='center',color='white'); idx+=1
+        for x in fw:
+            ax.text(x,10,names[idx].split()[1],ha='center',color='white'); idx+=1
+        st.pyplot(fig)
+    starters = st.multiselect("Select Starting XI", st.session_state.senior["Name"], default=st.session_state.starters)
+    if st.button("Kickoff!", key="kickoff"):
+        # 他試合結果
+        dfst=st.session_state.stand
+        others=[c for c in CLUBS if c not in [MY_CLUB, st.session_state.opp]]
+        for i in range(0,len(others),2):
+            a,b=others[i],others[i+1]
+            ga,gb = random.randint(0,3),random.randint(0,3)
+            if ga>gb: dfst.loc[dfst.Club==a,["W","Pts"]]+= [1,3]; dfst.loc[dfst.Club==b,"L"]+=1
+            elif ga<gb: dfst.loc[dfst.Club==b,["W","Pts"]]+= [1,3]; dfst.loc[dfst.Club==a,"L"]+=1
+            else: dfst.loc[dfst.Club.isin([a,b]),"D"]+=1; dfst.loc[dfst.Club==a,"Pts"]+=1; dfst.loc[dfst.Club==b,"Pts"]+=1
+        # 自チーム
+        ours = st.session_state.senior[st.session_state.senior["Name"].isin(starters)]
+        atk = ours["OVR"].mean() if not ours.empty else 75
+        oppatk = random.uniform(60,90)
+        g1 = max(0,int(np.random.normal((atk-60)/8,1)))
+        g2 = max(0,int(np.random.normal((oppatk-60)/8,1)))
+        if g1>g2: res="Win"
+        elif g1<g2: res="Lose"
+        else: res="Draw"
+        mvp = ours.nlargest(1,"OVR")["Name"].iloc[0] if not ours.empty else ""
+        # 順位更新
+        mi,oi = MY_CLUB,st.session_state.opp
+        if res=="Win": dfst.loc[dfst.Club==mi,["W","Pts"]]+= [1,3]; dfst.loc[dfst.Club==oi,"L"]+=1
+        elif res=="Lose": dfst.loc[dfst.Club==oi,["W","Pts"]]+= [1,3]; dfst.loc[dfst.Club==mi,"L"]+=1
+        else: dfst.loc[dfst.Club.isin([mi,oi]),"D"]+=1; dfst.loc[dfst.Club==mi,"Pts"]+=1; dfst.loc[dfst.Club==oi,"Pts"]+=1
+        st.session_state.stand = dfst.sort_values("Pts",ascending=False).reset_index(drop=True)
+        st.markdown(f"<div style='background:#27e3b9;color:#fff;padding:8px;border-radius:8px;'>**{res} ({g1}-{g2})**</div>", unsafe_allow_html=True)
+        st.markdown(f"<div style='background:#314265;color:#fff;padding:6px;border-radius:6px;'>Goals: You {g1} ‒ Opp {g2} | MVP: {mvp}</div>", unsafe_allow_html=True)
 
 # ==== 4. Scout ====
 with tabs[3]:
@@ -278,8 +307,58 @@ with tabs[3]:
                 st.session_state.refresh_y += 1
             else:
                 st.warning("Youth scout limit reached")
-    # 候補リスト表示（省略：既存ロジック流用）
-    # …（同様に画像付きでリフレッシュごとに変化）
+    # Senior候補
+    if not st.session_state.scout_s.empty:
+        st.markdown("#### Senior Candidates")
+        st.markdown('<div class="mobile-scroll">', unsafe_allow_html=True)
+        for i,row in st.session_state.scout_s.iterrows():
+            key=f"ss{i}"
+            cols = st.columns([1,3])
+            with cols[0]:
+                st.image(get_img(i+60), width=48)
+            with cols[1]:
+                st.write(f"**{row['Name']}** ({NATIONS[row['Nat']]})")
+                st.write(f"{row['Pos']} ｜ {row['Age']} ｜ OVR:{row['OVR']}")
+                st.write(f"Agent: {row['AgentFace']} {row['AgentName']}")
+                if st.button("Sign", key=key):
+                    if row["Name"] in st.session_state.senior["Name"].tolist():
+                        st.error("Already in squad")
+                    elif st.session_state.budget < row["Salary"]:
+                        st.error("Not enough budget")
+                    else:
+                        st.session_state.budget -= row["Salary"]
+                        st.session_state.senior = pd.concat(
+                            [st.session_state.senior, pd.DataFrame([row])],
+                            ignore_index=True
+                        )
+                        st.success(f"{row['Name']} signed!")
+        st.markdown('</div>', unsafe_allow_html=True)
+    # Youth候補
+    if not st.session_state.scout_y.empty:
+        st.markdown("#### Youth Candidates")
+        st.markdown('<div class="mobile-scroll">', unsafe_allow_html=True)
+        for i,row in st.session_state.scout_y.iterrows():
+            key=f"sy{i}"
+            cols = st.columns([1,3])
+            with cols[0]:
+                st.image(get_img(i+80), width=48)
+            with cols[1]:
+                st.write(f"**{row['Name']}** ({NATIONS[row['Nat']]})")
+                st.write(f"{row['Pos']} ｜ {row['Age']} ｜ OVR:{row['OVR']}")
+                st.write(f"Agent: {row['AgentFace']} {row['AgentName']}")
+                if st.button("Sign", key=key):
+                    if row["Name"] in st.session_state.youth["Name"].tolist():
+                        st.error("Already in youth")
+                    elif st.session_state.budget < row["Salary"]:
+                        st.error("Not enough budget")
+                    else:
+                        st.session_state.budget -= row["Salary"]
+                        st.session_state.youth = pd.concat(
+                            [st.session_state.youth, pd.DataFrame([row])],
+                            ignore_index=True
+                        )
+                        st.success(f"{row['Name']} signed!")
+        st.markdown('</div>', unsafe_allow_html=True)
 
 # ==== 5. Standings ====
 with tabs[4]:
@@ -298,4 +377,4 @@ with tabs[5]:
     if st.button("Save Data"): st.success("Data saved!")
     if st.button("Load Data"): st.success("Data loaded!")
 
-st.caption("2025年版：テーブル復帰＆縦スタメン＆Detailに年齢 完全版")
+st.caption("2025年版：代理人システム＆イギリス統一 完全統合版")
