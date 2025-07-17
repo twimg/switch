@@ -55,20 +55,48 @@ labels = ['Spd','Pas','Phy','Sta','Def','Tec','Men','Sht','Pow']
 
 # --- 国籍別名前プール ---
 NAME_POOLS = {
-    'ENG': {'given': ["Oliver","Jack","Harry","George","Noah","Charlie","Jacob","Thomas","Oscar","William","James","Henry","Leo","Joshua","Freddie","Archie","Logan","Alexander","Ethan","Mason","Finley","Lucas","Samuel","Joseph","Dylan","Matthew","Daniel","Benjamin","Max"],
-            'surname': ["Smith","Jones","Taylor","Brown","Wilson","Evans","Thomas","Roberts","Johnson","Lewis","Walker","White","Harris","Martin","Thompson","Robinson","Clark","Young","Allen","King","Wright","Scott","Adams","Baker","Hill","Green","Nelson","Mitchell","Perez","Campbell"]},
-    'GER': {'given': ["Lukas","Maximilian","Finn","Leon","Felix","Elias","Paul","Jonas","Luis","Tim","Noah","Ben","Jan","Anton","Henry","David","Moritz","Nico","Samuel","Philipp","Emil","Jonathan","Mats","Lennard","Theo","Jannik","Fabian","Johannes","Lucas","Elias"],
-            'surname': ["Müller","Schmidt","Schneider","Fischer","Weber","Meyer","Wagner","Becker","Bauer","Koch","Richter","Klein","Wolf","Neumann","Schwarz","Zimmermann","Schmitt","Krüger","Hofmann","Hartmann","Lange","Schmid","Werner","Schubert","Krause","Meier","Lehmann","Köhler","Frank","Mayer"]},
-    'ITA': {'given': ["Lorenzo","Alessandro","Francesco","Mattia","Leonardo","Riccardo","Gabriele","Niccolò","Tommaso","Andrea","Marco","Matteo","Fabio","Emanuele","Valerio","Daniele","Federico","Simone","Alberto","Vincenzo","Stefano","Davide","Giovanni","Fabiano","Luca","Antonio","Paolo","Maurizio","Raffaele","Jonathan"],
-            'surname': ["Rossi","Russo","Ferrari","Esposito","Bianchi","Romano","Colombo","Ricci","Marino","Greco","Gallo","Conti","De Luca","Mancini","Costa","Giordano","Rizzo","Lombardi","Moretti","Barbieri","Fontana","Santoro","Mariani","Riva","Bianco","Ferrara","Bernardi","Caputo","Monti"]},
-    'ESP': {'given': ["Hugo","Martín","Lucas","Mateo","Iker","Diego","Álvaro","Pablo","Adrián","Sergio","Joaquín","Ángel","David","Rubén","Martí","Óscar","Víctor","Miguel","Enzo","Álex","Bruno","Mario","Oliver","Juan","José","Raúl","Isco","Pedro","Nacho","Saúl"],
-            'surname': ["García","Martínez","López","Sánchez","Pérez","González","Rodríguez","Fernández","Torres","Ramírez","Flores","Gómez","Ruiz","Hernández","Díaz","Morales","Muñoz","Alonso","Gutiérrez","Castro","Ortiz","Rubio","Marín","Serrano","Gil","Blanco","Molina","Romero","Navarro","Medina"]},
-    'FRA': {'given': ["Lucas","Gabriel","Léo","Raphaël","Arthur","Louis","Hugo","Jules","Adam","Nathan","Ethan","Thomas","Clément","Théo","Mathis","Noah","Maxime","Paul","Alexis","Victor","Martin","Gabin","Quentin","Guillaume","Baptiste","Maxence","Romain","Antoine","Mathieu","Robin"],
-            'surname': ["Martin","Bernard","Thomas","Petit","Robert","Richard","Durand","Dubois","Moreau","Laurent","Simon","Michel","Leroy","Rousseau","David","Bertrand","Morel","Girard","Bonnet","Dupont","Lambert","Fontaine","Roux","Vincent","Morin","Nicolas","Lefebvre","Mercier","Dupuis","Blanc"]},
-    'BRA': {'given': ["Pedro","Lucas","Guilherme","Mateus","Gabriel","Rafael","Bruno","Thiago","Felipe","Diego","Vinícius","João","Carlos","Ricardo","Eduardo","Fernando","Rodrigo","Paulo","Leandro","André","Vitor","Marcelo","Roberto","Caio","Renato","Igor","Luan","Fábio","Jonas","Samuel"],
-            'surname': ["Silva","Santos","Oliveira","Souza","Rodrigues","Ferreira","Alves","Pereira","Lima","Gomes","Martins","Araújo","Ribeiro","Cardoso","Rocha","Dias","Carvalho","Barbosa","Pinto","Fernandes","Costa","Moreira","Mendes","Camargo","Rezende","Moura","Medeiros","Freitas","Castro","Campos"]},
-    'NED': {'given': ["Daan","Lars","Sem","Finn","Thijs","Mees","Senna","Luuk","Milan","Jens","Rick","Rens","Sven","Tijs","Joost","Noud","Stijn","Tygo","Mats","Niels","Jelle","Bram","Wout","Teun","Guus","Floris","Koen","Derk","Gerrit","Max"],
-            'surname': ["de Jong","Janssen","de Vries","van Dijk","Bakker","Visser","Smit","Meijer","de Boer","Mulder","de Graaf","Brouwer","van der Meer","Kuiper","Bos","Vos","Peters","Hendriks","Jakobs","van Leeuwen","de Groot","van den Berg","Kramer","van Dam","Molenaar","Corsten","Bergman","Verhoeven","Dekker","Veldman"]},
+    'ENG': {'given': ["Oliver","Jack","Harry","George","Noah","Charlie","Jacob","Thomas","Oscar","William",
+                      "James","Henry","Leo","Joshua","Freddie","Archie","Logan","Alexander","Ethan","Mason",
+                      "Finley","Lucas","Samuel","Joseph","Dylan","Matthew","Daniel","Benjamin","Max"],
+            'surname': ["Smith","Jones","Taylor","Brown","Wilson","Evans","Thomas","Roberts","Johnson","Lewis",
+                        "Walker","White","Harris","Martin","Thompson","Robinson","Clark","Young","Allen","King",
+                        "Wright","Scott","Adams","Baker","Hill","Green","Nelson","Mitchell","Perez","Campbell"]},
+    'GER': {'given': ["Lukas","Maximilian","Finn","Leon","Felix","Elias","Paul","Jonas","Luis","Tim",
+                      "Noah","Ben","Jan","Anton","Henry","David","Moritz","Nico","Samuel","Philipp",
+                      "Emil","Jonathan","Mats","Lennard","Theo","Jannik","Fabian","Johannes","Lucas","Elias"],
+            'surname': ["Müller","Schmidt","Schneider","Fischer","Weber","Meyer","Wagner","Becker","Bauer","Koch",
+                        "Richter","Klein","Wolf","Neumann","Schwarz","Zimmermann","Schmitt","Krüger","Hofmann","Hartmann",
+                        "Lange","Schmid","Werner","Schubert","Krause","Meier","Lehmann","Köhler","Frank","Mayer"]},
+    'ITA': {'given': ["Lorenzo","Alessandro","Francesco","Mattia","Leonardo","Riccardo","Gabriele","Niccolò","Tommaso","Andrea",
+                      "Marco","Matteo","Fabio","Emanuele","Valerio","Daniele","Federico","Simone","Alberto","Vincenzo",
+                      "Stefano","Davide","Giovanni","Fabiano","Luca","Antonio","Paolo","Maurizio","Raffaele","Jonathan"],
+            'surname': ["Rossi","Russo","Ferrari","Esposito","Bianchi","Romano","Colombo","Ricci","Marino","Greco",
+                        "Gallo","Conti","De Luca","Mancini","Costa","Giordano","Rizzo","Lombardi","Moretti","Barbieri",
+                        "Fontana","Santoro","Mariani","Riva","Bianco","Ferrara","Bernardi","Caputo","Monti"]},
+    'ESP': {'given': ["Hugo","Martín","Lucas","Mateo","Iker","Diego","Álvaro","Pablo","Adrián","Sergio",
+                      "Joaquín","Ángel","David","Rubén","Martí","Óscar","Víctor","Miguel","Enzo","Álex",
+                      "Bruno","Mario","Oliver","Juan","José","Raúl","Isco","Pedro","Nacho","Saúl"],
+            'surname': ["García","Martínez","López","Sánchez","Pérez","González","Rodríguez","Fernández","Torres","Ramírez",
+                        "Flores","Gómez","Ruiz","Hernández","Díaz","Morales","Muñoz","Alonso","Gutiérrez","Castro",
+                        "Ortiz","Rubio","Marín","Serrano","Gil","Blanco","Molina","Romero","Navarro","Medina"]},
+    'FRA': {'given': ["Lucas","Gabriel","Léo","Raphaël","Arthur","Louis","Hugo","Jules","Adam","Nathan",
+                      "Ethan","Thomas","Clément","Théo","Mathis","Noah","Maxime","Paul","Alexis","Victor",
+                      "Martin","Gabin","Quentin","Guillaume","Baptiste","Maxence","Romain","Antoine","Mathieu","Robin"],
+            'surname': ["Martin","Bernard","Thomas","Petit","Robert","Richard","Durand","Dubois","Moreau","Laurent",
+                        "Simon","Michel","Leroy","Rousseau","David","Bertrand","Morel","Girard","Bonnet","Dupont",
+                        "Lambert","Fontaine","Roux","Vincent","Morin","Nicolas","Lefebvre","Mercier","Dupuis","Blanc"]},
+    'BRA': {'given': ["Pedro","Lucas","Guilherme","Mateus","Gabriel","Rafael","Bruno","Thiago","Felipe","Diego",
+                      "Vinícius","João","Carlos","Ricardo","Eduardo","Fernando","Rodrigo","Paulo","Leandro","André",
+                      "Vitor","Marcelo","Roberto","Caio","Renato","Igor","Luan","Fábio","Jonas","Samuel"],
+            'surname': ["Silva","Santos","Oliveira","Souza","Rodrigues","Ferreira","Alves","Pereira","Lima","Gomes",
+                        "Martins","Araújo","Ribeiro","Cardoso","Rocha","Dias","Carvalho","Barbosa","Pinto","Fernandes",
+                        "Costa","Moreira","Mendes","Camargo","Rezende","Moura","Medeiros","Freitas","Castro","Campos"]},
+    'NED': {'given': ["Daan","Lars","Sem","Finn","Thijs","Mees","Senna","Luuk","Milan","Jens",
+                      "Rick","Rens","Sven","Tijs","Joost","Noud","Stijn","Tygo","Mats","Niels",
+                      "Jelle","Bram","Wout","Teun","Guus","Floris","Koen","Derk","Gerrit","Max"],
+            'surname': ["de Jong","Janssen","de Vries","van Dijk","Bakker","Visser","Smit","Meijer","de Boer","Mulder",
+                        "de Graaf","Brouwer","van der Meer","Kuiper","Bos","Vos","Peters","Hendriks","Jakobs","van Leeuwen",
+                        "de Groot","van den Berg","Kramer","van Dam","Molenaar","Corsten","Bergman","Verhoeven","Dekker","Veldman"]}
 }
 
 # --- プレースタイル & 成長タイプ ---
@@ -124,15 +152,17 @@ def gen_players(n, youth=False):
         })
     return pd.DataFrame(lst)
 
-# --- セッション初期화 ---
+# --- セッション初期化 ---
 ses = st.session_state
 if 'week' not in ses: ses.week = 1
 if 'senior' not in ses: ses.senior = gen_players(30)
 if 'youth' not in ses: ses.youth = gen_players(20, True)
 if 'standings' not in ses:
     ses.standings = {r:{d:pd.DataFrame({'Club':LEAGUES[r][d],'W':0,'D':0,'L':0,'GF':0,'GA':0,'Pts':0}) for d in LEAGUES[r]} for r in regions}
-for key in ['player_history','match_log','sns_posts','sns_times','finance_log','season_summary','injury_info','suspension_info','intl_tournament']:
-    if key not in ses: ses[key] = [] if key in ['player_history','match_log','sns_posts','sns_times','finance_log','season_summary'] else {}
+if 'player_history' not in ses: ses.player_history = {}
+for key in ['match_log','sns_posts','sns_times','finance_log','season_summary','injury_info','suspension_info','intl_tournament']:
+    if key not in ses:
+        ses[key] = [] if key in ['match_log','sns_posts','sns_times','finance_log','season_summary'] else {}
 
 # --- タブ定義 ---
 tabs = st.tabs(['シニア','ユース','選手詳細','試合','順位表','SNS','国際大会','財務レポート','年間表彰','リーダーボード'])
@@ -180,15 +210,12 @@ with tabs[3]:
             st.success(f"結果 {g1}-{g2}")
             st.markdown('---')
             for ev in events: st.write(f"{ev['minute']}’ {ev['text']}")
-            # SNS & 財務ログ
             post = f"{regions[0]} {g1}-{g2} {opp}"
             ses.sns_posts.append(post); ses.sns_times.append(datetime.now())
             ses.finance_log.append({'week':ses.week,'revenue_ticket':g1*10000,'revenue_goods':g2*5000,'expense_salary':int(ses.senior['OVR'].mean()*1000)})
             ses.week += 1
-            # シーズン終了判定
             if ses.week > SEASON_WEEKS:
-                division_df = ses.standings[regions[0]][division]
-                champion = division_df.nlargest(1,'Pts')['Club'].iloc[0]
+                champion = ses.standings[regions[0]][division].nlargest(1,'Pts')['Club'].iloc[0]
                 top_scorer = ses.senior.nlargest(1,'Goals')['Name'].iloc[0]
                 ses.season_summary.append({'Champion':champion,'TopScorer':top_scorer})
                 st.success("シーズン終了！")
