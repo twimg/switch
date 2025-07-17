@@ -17,7 +17,7 @@ body, .stApp { font-family:'IPAexGothic','Meiryo',sans-serif; }
 .stApp { background:linear-gradient(120deg,#202c46 0%,#314265 100%)!important; color:#eaf6ff; }
 h1,h2,h3,h4,h5,h6 { color:#fff!important; }
 .stTabs button { color:#fff!important; background:transparent!important; }
-.stTabs [aria-selected=\"true\"] { border-bottom:2.5px solid #f7df70!important; }
+.stTabs [aria-selected="true"] { border-bottom:2.5px solid #f7df70!important; }
 .stButton>button { background:#27e3b9!important; color:#202b41!important; font-weight:bold; border-radius:10px; margin:6px 0; }
 .stButton>button:active { background:#ffee99!important; }
 </style>
@@ -26,6 +26,8 @@ h1,h2,h3,h4,h5,h6 { color:#fff!important; }
 st.title("Club Strive")
 
 # --- 定数 ---
+SEASON_WEEKS = 14
+
 LEAGUES = {
     'イングランド': {
         '1部': ["Riverdale FC","Midtown United","Eastport Rovers","Kingsbridge Athletic","Westhaven City","Southvale Town","Northgate FC","Oakwood Albion"],
@@ -66,7 +68,7 @@ NAME_POOLS = {
     'BRA': {'given': ["Pedro","Lucas","Guilherme","Mateus","Gabriel","Rafael","Bruno","Thiago","Felipe","Diego","Vinícius","João","Carlos","Ricardo","Eduardo","Fernando","Rodrigo","Paulo","Leandro","André","Vitor","Marcelo","Roberto","Caio","Renato","Igor","Luan","Fábio","Jonas","Samuel"],
             'surname': ["Silva","Santos","Oliveira","Souza","Rodrigues","Ferreira","Alves","Pereira","Lima","Gomes","Martins","Araújo","Ribeiro","Cardoso","Rocha","Dias","Carvalho","Barbosa","Pinto","Fernandes","Costa","Moreira","Mendes","Camargo","Rezende","Moura","Medeiros","Freitas","Castro","Campos"]},
     'NED': {'given': ["Daan","Lars","Sem","Finn","Thijs","Mees","Senna","Luuk","Milan","Jens","Rick","Rens","Sven","Tijs","Joost","Noud","Stijn","Tygo","Mats","Niels","Jelle","Bram","Wout","Teun","Guus","Floris","Koen","Derk","Gerrit","Max"],
-            'surname': ["de Jong","Janssen","de Vries","van Dijk","Bakker","Visser","Smit","Meijer","de Boer","Mulder","de Graaf","Brouwer","van der Meer","Kuiper","Bos","Vos","Peters","Hendriks","Jakobs","van Leeuwen","de Groot","van den Berg","Kramer","van Dam","Molenaar","Corsten","Bergman","Verhoeven","Dekker","Veldman"]}
+            'surname': ["de Jong","Janssen","de Vries","van Dijk","Bakker","Visser","Smit","Meijer","de Boer","Mulder","de Graaf","Brouwer","van der Meer","Kuiper","Bos","Vos","Peters","Hendriks","Jakobs","van Leeuwen","de Groot","van den Berg","Kramer","van Dam","Molenaar","Corsten","Bergman","Verhoeven","Dekker","Veldman"]},
 }
 
 # --- プレースタイル & 成長タイプ ---
@@ -94,10 +96,10 @@ NATION_GROWTH_MAP = {
     'OTHER': GROWTH_TYPES_POOL
 }
 
-# プール抽出
 def pick_from_weighted_pool(nat, pool_map, all_pool):
     base = pool_map.get(nat, pool_map['OTHER']).copy()
-    if len(base) < len(all_pool): base.extend([s for s in all_pool if s not in base])
+    if len(base) < len(all_pool):
+        base.extend([s for s in all_pool if s not in base])
     random.shuffle(base)
     return base
 
@@ -122,7 +124,7 @@ def gen_players(n, youth=False):
         })
     return pd.DataFrame(lst)
 
-# --- セッション初期化 ---
+# --- セッション初期화 ---
 ses = st.session_state
 if 'week' not in ses: ses.week = 1
 if 'senior' not in ses: ses.senior = gen_players(30)
@@ -135,11 +137,15 @@ for key in ['player_history','match_log','sns_posts','sns_times','finance_log','
 # --- タブ定義 ---
 tabs = st.tabs(['シニア','ユース','選手詳細','試合','順位表','SNS','国際大会','財務レポート','年間表彰','リーダーボード'])
 
-# --- 各タブ実装 ---
+# 0) シニア
 with tabs[0]:
     st.dataframe(ses.senior[['Name','Nat','Pos','OVR','PlayStyle','GrowthType']], use_container_width=True)
+
+# 1) ユース
 with tabs[1]:
     st.dataframe(ses.youth[['Name','Nat','Pos','OVR','PlayStyle','GrowthType']], use_container_width=True)
+
+# 2) 選手詳細
 with tabs[2]:
     sel = st.selectbox('選手選択', ses.senior['Name'].tolist())
     hist = pd.DataFrame(ses.player_history.get(sel, [{'week':0,'OVR': ses.senior[ses.senior.Name==sel]['OVR'].iloc[0]}]))
@@ -155,58 +161,112 @@ with tabs[2]:
     ax2.plot(hist['week'], hist['OVR'], marker='o', linestyle=style_map.get(p['GrowthType'],'-'))
     ax2.set_xlabel('節'); ax2.set_ylabel('総合値'); st.pyplot(fig2)
     st.write(f"スタイル: {p['PlayStyle']} | 成長: {p['GrowthType']}")
+
+# 3) 試合
 with tabs[3]:
     division = list(LEAGUES[regions[0]].keys())[0]
     opp = random.choice([c for c in LEAGUES[regions[0]][division] if c != LEAGUES[regions[0]][division][0]])
-    if st.button('キックオフ'):
-        events = []
-        g1, g2 = random.randint(0,3), random.randint(0,3)
-        for player in random.sample(ses.senior['Name'].tolist(),2):
-            if random.random()<0.1:
-                events.append({'minute':random.randint(1,90),'text':f"{player} 🟡"})
-        if random.random()<0.05:
-            pl = random.choice(ses.senior['Name'].tolist()); wks = random.randint(1,3)
-            ses.injury_info[pl] = {'start': ses.week, 'return': ses.week+wks}
-            events.append({'minute': random.randint(1,90), 'text': f"{pl} 負傷離脱"})
-        st.success(f"結果 {g1}-{g2}")
-        st.markdown('---')
-        for ev in events: st.write(f"{ev['minute']}’ {ev['text']}")
-        post = f"{regions[0]} {g1}-{g2} {opp}"; ses.sns_posts.append(post); ses.sns_times.append(datetime.now())
-        ses.finance_log.append({'week':ses.week,'revenue_ticket':g1*10000,'revenue_goods':g2*5000,'expense_salary':int(ses.senior['OVR'].mean()*1000)})
-        ses.week += 1
+    if ses.week <= SEASON_WEEKS:
+        if st.button('キックオフ'):
+            events = []
+            g1, g2 = random.randint(0,3), random.randint(0,3)
+            for player in random.sample(ses.senior['Name'].tolist(),2):
+                if random.random()<0.1:
+                    events.append({'minute':random.randint(1,90),'text':f"{player} 🟡"})
+            if random.random()<0.05:
+                pl = random.choice(ses.senior['Name'].tolist()); wks = random.randint(1,3)
+                ses.injury_info[pl] = {'start': ses.week, 'return': ses.week+wks}
+                events.append({'minute': random.randint(1,90), 'text': f"{pl} 負傷離脱"})
+            st.success(f"結果 {g1}-{g2}")
+            st.markdown('---')
+            for ev in events: st.write(f"{ev['minute']}’ {ev['text']}")
+            # SNS & 財務ログ
+            post = f"{regions[0]} {g1}-{g2} {opp}"
+            ses.sns_posts.append(post); ses.sns_times.append(datetime.now())
+            ses.finance_log.append({'week':ses.week,'revenue_ticket':g1*10000,'revenue_goods':g2*5000,'expense_salary':int(ses.senior['OVR'].mean()*1000)})
+            ses.week += 1
+            # シーズン終了判定
+            if ses.week > SEASON_WEEKS:
+                division_df = ses.standings[regions[0]][division]
+                champion = division_df.nlargest(1,'Pts')['Club'].iloc[0]
+                top_scorer = ses.senior.nlargest(1,'Goals')['Name'].iloc[0]
+                ses.season_summary.append({'Champion':champion,'TopScorer':top_scorer})
+                st.success("シーズン終了！")
+    else:
+        st.info("シーズンは終了しました。次シーズンを開始してください。")
+        if st.button("次シーズン開始"):
+            ses.week = 1
+            ses.senior = gen_players(30)
+            ses.youth = gen_players(20, True)
+            ses.standings = {r:{d:pd.DataFrame({'Club':LEAGUES[r][d],'W':0,'D':0,'L':0,'GF':0,'GA':0,'Pts':0}) for d in LEAGUES[r]} for r in regions}
+            ses.sns_posts.clear(); ses.sns_times.clear(); ses.finance_log.clear(); ses.intl_tournament.clear()
+            st.success("新シーズンを開始しました！")
+
+# 4) 順位表
 with tabs[4]:
-    region = st.selectbox('地域', regions); div = st.selectbox('部', list(LEAGUES[region].keys()))
+    region = st.selectbox('地域', regions)
+    div = st.selectbox('部', list(LEAGUES[region].keys()))
     st.dataframe(ses.standings[region][div], use_container_width=True)
+
+# 5) SNS
 with tabs[5]:
     if ses.sns_posts:
         for t,p in zip(reversed(ses.sns_times), reversed(ses.sns_posts)):
             st.write(f"{t.strftime('%m/%d %H:%M')} - {p}")
-    else: st.info('投稿なし')
+    else:
+        st.info('投稿なし')
+
+# 6) 国際大会
 with tabs[6]:
     if not ses.intl_tournament:
         parts = []
-        for reg in regions: parts.extend(ses.standings[reg]['1部'].nlargest(2,'Pts')['Club'].tolist())
-        random.shuffle(parts); ses.intl_tournament={'clubs':parts,'results':[]}
+        for reg in regions:
+            parts.extend(ses.standings[reg]['1部'].nlargest(2,'Pts')['Club'].tolist())
+        random.shuffle(parts)
+        ses.intl_tournament = {'clubs':parts,'results':[]}
     if st.button('次ラウンド進行'):
         clubs = ses.intl_tournament['clubs']; winners=[]
-        for i in range(0,len(clubs),2): c1,c2=clubs[i],clubs[i+1]; g1,g2=random.randint(0,4),random.randint(0,4)
-            w=c1 if g1>g2 else c2; ses.intl_tournament['results'].append((c1,g1,c2,g2,w)); winners.append(w)
+        for i in range(0,len(clubs),2):
+            c1,c2=clubs[i],clubs[i+1]
+            g1,g2=random.randint(0,4),random.randint(0,4)
+            w = c1 if g1>g2 else c2
+            ses.intl_tournament['results'].append((c1,g1,c2,g2,w)); winners.append(w)
         ses.intl_tournament['clubs'] = winners
-    for idx,m in enumerate(ses.intl_tournament['results']): st.write(f"【R{idx+1}】 {m[0]} {m[1]}-{m[3]} {m[2]} → {m[4]}")
-    if len(ses.intl_tournament['clubs'])==1: st.success(f"優勝:{ses.intl_tournament['clubs'][0]}")
-with tabs[7]:
-    df_fin=pd.DataFrame(ses.finance_log)
-    if not df_fin.empty:
-        fig,ax=plt.subplots(); ax.plot(df_fin['week'], df_fin['revenue_ticket']+df_fin['revenue_goods'],label='収入'); ax.plot(df_fin['week'], df_fin['expense_salary'],label='支出'); ax.legend(); st.pyplot(fig)
-    else: st.info('財務データなし')
-with tabs[8]:
-    df_all=pd.concat([ses.senior, ses.youth],ignore_index=True)
-    top5=df_all.nlargest(5,'Goals'); st.write('🏅 得点王 TOP5'); st.table(top5[['Name','Goals']].rename(columns={'Name':'選手','Goals':'ゴール'}))
-    best11=df_all.nlargest(11,'OVR'); st.write('⚽️ ベストイレブン: '+', '.join(best11['Name'].tolist()))
-with tabs[9]:
-    df_all['AgeGroup']=pd.cut(df_all['Age'] if 'Age' in df_all.columns else pd.Series([0]),bins=[0,21,23,100],labels=['U21','U23','25+'])
-    typ=st.selectbox('表示タイプ',['国籍別得点','国籍別平均OVR','世代別ゴール'])
-    if typ=='国籍別得点': df_nat=df_all.groupby('Nat')['Goals'].sum().reset_index().sort_values('Goals',ascending=False); st.table(df_nat.rename(columns={'Nat':'国籍','Goals':'総ゴール'}))
-    elif typ=='国籍別平均OVR': df_nat=df_all.groupby('Nat')['OVR'].mean().reset_index().sort_values('OVR',ascending=False); fig,ax=plt.subplots(); ax.bar(df_nat['Nat'],df_nat['OVR']); st.pyplot(fig)
-    else: df_age=df_all.groupby('AgeGroup')['Goals'].sum().reset_index(); fig,ax=plt.subplots(); ax.bar(df_age['AgeGroup'],df_age['Goals']); st.pyplot(fig)
+    for idx,m in enumerate(ses.intl_tournament['results']):
+        st.write(f"【R{idx+1}】 {m[0]} {m[1]}-{m[3]} {m[2]} → {m[4]}")
+    if len(ses.intl_tournament['clubs'])==1:
+        st.success(f"優勝: {ses.intl_tournament['clubs'][0]}")
 
+# 7) 財務レポート
+with tabs[7]:
+    df_fin = pd.DataFrame(ses.finance_log)
+    if not df_fin.empty:
+        fig,ax=plt.subplots()
+        ax.plot(df_fin['week'], df_fin['revenue_ticket']+df_fin['revenue_goods'], label='収入')
+        ax.plot(df_fin['week'], df_fin['expense_salary'], label='支出')
+        ax.legend(); st.pyplot(fig)
+    else:
+        st.info('財務データなし')
+
+# 8) 年間表彰
+with tabs[8]:
+    df_all = pd.concat([ses.senior, ses.youth], ignore_index=True)
+    top5 = df_all.nlargest(5,'Goals')
+    st.write('🏅 得点王 TOP5'); st.table(top5[['Name','Goals']].rename(columns={'Name':'選手','Goals':'ゴール'}))
+    best11 = df_all.nlargest(11,'OVR')
+    st.write('⚽️ ベストイレブン: ' + ', '.join(best11['Name'].tolist()))
+
+# 9) リーダーボード
+with tabs[9]:
+    df_all['AgeGroup'] = pd.cut(df_all['Age'] if 'Age' in df_all.columns else pd.Series([0]),
+                                bins=[0,21,23,100], labels=['U21','U23','25+'])
+    typ = st.selectbox('表示タイプ',['国籍別得点','国籍別平均OVR','世代別ゴール'])
+    if typ=='国籍別得点':
+        df_nat = df_all.groupby('Nat')['Goals'].sum().reset_index().sort_values('Goals',ascending=False)
+        st.table(df_nat.rename(columns={'Nat':'国籍','Goals':'総ゴール'}))
+    elif typ=='国籍別平均OVR':
+        df_nat = df_all.groupby('Nat')['OVR'].mean().reset_index().sort_values('OVR',ascending=False)
+        fig,ax=plt.subplots(); ax.bar(df_nat['Nat'],df_nat['OVR']); st.pyplot(fig)
+    else:
+        df_age = df_all.groupby('AgeGroup')['Goals'].sum().reset_index()
+        fig,ax=plt.subplots(); ax.bar(df_age['AgeGroup'],df_age['Goals']); st.pyplot(fig)
