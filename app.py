@@ -1,5 +1,5 @@
 # =========================
-# Part 1 / 10  --- 基本設定・共通関数
+# Part 1 / 12  --- Imports / Page Config / CSS / Constants
 # =========================
 import streamlit as st
 import pandas as pd
@@ -8,19 +8,11 @@ import matplotlib.pyplot as plt
 import random
 from datetime import datetime
 
-# ---- ページ設定 ----
-st.set_page_config(page_title="Club Strive - Ultimate Soccer Manager", layout="wide")
-
-# 乱数固定
+st.set_page_config(page_title="Club Strive", layout="wide")
 random.seed(42)
 np.random.seed(42)
 
-# Matplotlib 日本語 & 透明背景
-plt.rcParams['font.family'] = 'IPAexGothic'
-plt.rcParams['axes.facecolor'] = 'none'
-plt.rcParams['figure.facecolor'] = 'none'
-
-# ---- CSS（全体UI調整）----
+# ----- 強制白文字＆背景調整（DataFrame含む） -----
 st.markdown("""
 <style>
 body, .stApp { font-family:'IPAexGothic','Meiryo',sans-serif; }
@@ -28,589 +20,467 @@ body, .stApp { font-family:'IPAexGothic','Meiryo',sans-serif; }
 h1,h2,h3,h4,h5,h6 { color:#fff!important; }
 .stTabs button { color:#fff!important; background:transparent!important; }
 .stTabs [aria-selected="true"] { border-bottom:2.5px solid #f7df70!important; }
-
-/* 通常&送信ボタン */
-.stButton>button, div[data-testid="stFormSubmitButton"] button {
-  background:#27e3b9!important; color:#202b41!important; font-weight:bold;
-  border-radius:10px; margin:6px 0; border:2px solid #27e3b9!important;
-}
-.stButton>button:active, div[data-testid="stFormSubmitButton"] button:active {
-  background:#ffee99!important;
-}
-
-/* DataFrame */
-.dataframe tbody tr, .dataframe thead tr, .stDataFrame, .stDataFrame div {
-  background:rgba(32,44,70,0.85)!important; color:#fff!important;
-}
-.dataframe td, .dataframe th { color:#fff!important; }
-
-/* スカウトカード */
-.scout-card{
-  background:rgba(255,255,255,0.10); padding:12px 16px; margin:16px 0;
-  border-radius:12px; box-shadow:0 0 6px #0006;
-}
-
-/* 情報ボックス（空白防止） */
-.tab-info{
-  color:#fff; background:rgba(255,255,255,0.08); padding:12px 16px;
-  border-radius:8px; margin:12px 0;
-}
-
-/* プレースタイルのタグ風表示用（必要に応じて使う） */
-span.playstyle-chip {
-  display:inline-block; padding:3px 8px; margin:2px; border-radius:12px;
-  background:#f7df70; color:#202b41; font-size:12px; font-weight:bold;
-}
+.stButton>button { background:#27e3b9!important; color:#202b41!important; font-weight:bold; border-radius:10px; margin:6px 0; }
+.stButton>button:active { background:#ffee99!important; }
+[data-testid="stDataFrame"] td, 
+[data-testid="stDataFrame"] th,
+[data-testid="stDataFrame"] span,
+[data-testid="stDataFrame"] div { color:#fff !important; }
+[data-testid="stDataFrame"] table { background-color:rgba(32,44,70,0.85) !important; }
+.scout-card { background:rgba(32,44,70,0.85); color:#fff; padding:10px 12px; margin:8px 0; border-radius:10px; box-shadow:0 0 8px #0005; }
+.tab-info { color:#eaf6ff88; padding:6px 0; }
 </style>
 """, unsafe_allow_html=True)
 
 st.title("Club Strive")
 
-# ---- 定数 ----
+# ----- 共通定数 -----
 SEASON_WEEKS = 14
-POS_ORDER = {"GK":0, "DF":1, "MF":2, "FW":3}
 ABILITY_KEYS = ['Spd','Pas','Phy','Sta','Def','Tec','Men','Sht','Pow']
-ABILITY_LABELS = {
-    'Spd':'Speed','Pas':'Pass','Phy':'Physical','Sta':'Stamina',
-    'Def':'Defense','Tec':'Technique','Men':'Mental','Sht':'Shoot','Pow':'Power'
-}
+POS_ORDER = {'GK':0,'DF':1,'MF':2,'FW':3}
 
-# ---- 便利関数 ----
+# =========================
+# Part 2 / 12  --- Utility / Name Pools / Growth & Style / Charts
+# =========================
+
+# ---------- 表示系ユーティリティ ----------
 def fmt_money(v:int)->str:
-    if v >= 1_000_000: return f"{v//1_000_000}m€"
-    if v >= 1_000:     return f"{v//1_000}k€"
+    if v >= 1_000_000:
+        return f"{v//1_000_000}m€"
+    if v >= 1_000:
+        return f"{v//1_000}k€"
     return f"{v}€"
 
-def make_transparent(ax):
-    ax.tick_params(colors="#fff")
-    for spine in ax.spines.values():
-        spine.set_color("#fff")
-    ax.title.set_color("#fff")
-    ax.xaxis.label.set_color("#fff")
-    ax.yaxis.label.set_color("#fff")
-    leg = ax.get_legend()
-    if leg:
-        for text in leg.get_texts():
-            text.set_color("#fff")
+def normalize_value(v:int)->int:
+    if v >= 1000:
+        return (v // 1000) * 1000
+    else:
+        return max(5, (v // 5) * 5)
 
-def radar_chart(vals, labels):
-    L = len(labels)
-    angles = np.linspace(0, 2*np.pi, L, endpoint=False)
-    vals = np.r_[vals, vals[0]]
-    angles = np.r_[angles, angles[0]]
-    fig = plt.figure(figsize=(3,3))
-    ax = fig.add_subplot(111, polar=True)
-    ax.plot(angles, vals, linewidth=2)
-    ax.fill(angles, vals, alpha=0.25)
-    ax.set_xticks(angles[:-1])
-    ax.set_xticklabels(labels, color="#fff", fontsize=8)
-    ax.set_yticklabels([])
-    ax.grid(color="#fff", alpha=0.2)
-    fig.patch.set_alpha(0)
-    ax.patch.set_alpha(0)
-    return fig
+def sort_by_pos(df:pd.DataFrame, reverse:bool=False)->pd.DataFrame:
+    order = (-1 if reverse else 1)
+    return df.assign(_ord=df['Pos'].map(POS_ORDER)).sort_values(['_ord','OVR'], ascending=[order>0, False]).drop(columns=['_ord'])
 
-def sort_by_pos(df, reverse=False):
-    df = df.copy()
-    df['__p__'] = df['Pos'].map(POS_ORDER)
-    df = df.sort_values(['__p__','OVR'], ascending=[not reverse, False]).drop(columns='__p__')
-    return df
-
-def make_highlighter(col_name, target):
+def make_highlighter(col:str, target):
     def _hl(row):
-        return ['background-color: rgba(247,223,112,0.25); color:#fff']*len(row) if row[col_name]==target else ['']*len(row)
+        return ['background-color:#27e3b933' if row[col]==target else '' for _ in row]
     return _hl
 
-def style_playstyle(series: pd.Series):
-    # DataFrame.style で使うダミー（今回は色変え済みなので空）
-    return ['']*len(series)
+def make_transparent(ax):
+    ax.set_facecolor("none")
+    if ax.figure:
+        ax.figure.patch.set_alpha(0)
+    for spine in ax.spines.values():
+        spine.set_color("#fff3")
+    ax.tick_params(colors="#fff8")
+    ax.title.set_color("#fff")
 
-def normalize_value(v:int)->int:
-    if v < 1000:
-        v = (v//5)*5
-    else:
-        v = (v//1000)*1000
-    return max(v, 0)
+def radar_chart(values, labels):
+    vals = values + values[:1]
+    ang  = np.linspace(0, 2*np.pi, len(labels), endpoint=False).tolist()
+    ang += ang[:1]
+    fig, ax = plt.subplots(subplot_kw=dict(polar=True), figsize=(3,3))
+    ax.plot(ang, vals, linewidth=2)
+    ax.fill(ang, vals, alpha=0.25)
+    ax.set_xticks(ang[:-1])
+    ax.set_xticklabels(labels, color="#fff")
+    ax.set_yticklabels([])
+    make_transparent(ax)
+    return fig
 
-def suggest_positions(df):
-    need = {'GK':2,'DF':8,'MF':8,'FW':5}
-    cnt = df['Pos'].value_counts().to_dict()
-    msg=[]
-    for p in ['GK','DF','MF','FW']:
-        lack = need[p] - cnt.get(p,0)
-        if lack>0: msg.append(f"{p}×{lack}")
-    return "なし" if not msg else ", ".join(msg)
+def update_player_history(name:str, row:pd.Series, week:int):
+    ses = st.session_state
+    rec = {'week':week, 'OVR':row['OVR'], **{k:row[k] for k in ABILITY_KEYS}}
+    ses.player_history.setdefault(name, []).append(rec)
 
-# =========================
-# Part 2 / 10  --- 名前/スタイル/成長/バイアス
-# =========================
+def suggest_positions(df:pd.DataFrame)->list:
+    need=[]
+    for p, min_cnt in [('GK',2),('DF',8),('MF',8),('FW',6)]:
+        have = (df['Pos']==p).sum()
+        if have < min_cnt:
+            need.append(f"{p}({min_cnt-have})")
+    return need if need else ["バランスOK"]
 
-# ---- 20か国 + 汎用 の名前プール（first30/last30）----
-# 追加・修正したい場合はこの辞書を編集
-NAME_POOLS = {
+# ---------- 成長タイプ / プレースタイル ----------
+GROWTH_TYPES = {
+    "ENG":["通常","晩成","持続","波あり"],
+    "GER":["通常","晩成","持続"],
+    "FRA":["通常","波あり","瞬間伸び"],
+    "ESP":["通常","技巧型","瞬間伸び"],
+    "ITA":["通常","守備伸び","晩成"],
+    "NED":["通常","攻撃伸び","持続"],
+    "BRA":["通常","爆発型","技巧型"],
+    "POR":["通常","爆発型","波あり"],
+    "BEL":["通常","守備伸び","持続"],
+    "TUR":["通常","波あり","晩成"],
+    "ARG":["通常","爆発型","技巧型"],
+    "URU":["通常","守備伸び","晩成"],
+    "COL":["通常","波あり","攻撃伸び"],
+    "USA":["通常","持続","波あり"],
+    "MEX":["通常","爆発型","波あり"],
+    "SAU":["通常","持続","晩成"],
+    "NGA":["通常","爆発型","身体伸び"],
+    "MAR":["通常","守備伸び","波あり"],
+    "KOR":["通常","持続","晩成"],
+    "AUS":["通常","波あり","持続"]
+}
+
+PLAYSTYLE_POOL = {
+    "default": ["チーム至上主義","ムードメーカー","司令塔","インサイドハーフ","クロスハンター","タックルマスター",
+                "影の支配者","チャンスメーカ―","爆発型CB","起点型GK","スイーパーリーダー","師弟型","感情型",
+                "セカンドストライカー","ジョーカー","空中戦の覇者","フリーキック職人","ロングスロー使い"],
+    "BRA": ["ドリブラー","ファンタジスタ","リベルタドーレスの闘士"],
+    "ARG": ["シャドーストライカー","パンパスの狩人"],
+    "ENG": ["ゴールハンター","ロングシュート職人"],
+    "GER": ["メンタルリーダー","鉄壁ディフェンダー"],
+    "ITA": ["カテナチオスペシャリスト","レジスタ"],
+    "ESP": ["ティキタカ使い","ポゼッションマスター"],
+    "FRA": ["アーティスト","ボックストゥボックス"],
+    "NED": ["トータルフットボール信奉者"],
+    "POR": ["インナーフォワード"],
+    "BEL": ["万能型ミッドフィールダー"],
+    "TUR": ["激情型ファイター"],
+    "URU": ["ガリンチャ魂","闘犬"],
+    "COL": ["テクニカルウィング"],
+    "USA": ["ハードワーカー"],
+    "MEX": ["蛇の牙ストライカー"],
+    "SAU": ["砂漠のスプリンター"],
+    "NGA": ["爆速ランナー"],
+    "MAR": ["砂漠のレジスタ"],
+    "KOR": ["勤勉ボランチ"],
+    "AUS": ["タフガイ"]
+}
+
+def pick_style_pool(nat):
+    pool = PLAYSTYLE_POOL["default"] + PLAYSTYLE_POOL.get(nat,[])
+    return pool
+
+def pick_growth_pool(nat):
+    return GROWTH_TYPES.get(nat, ["通常"])
+
+def apply_growth(df:pd.DataFrame, week:int)->pd.DataFrame:
+    df = df.copy()
+    for i,r in df.iterrows():
+        g = r.get('GrowthType','通常')
+        delta = 0
+        if g=="爆発型" and random.random()<0.3: delta = random.randint(2,4)
+        elif g=="瞬間伸び" and random.random()<0.15: delta = random.randint(3,5)
+        elif g=="晩成" and week>SEASON_WEEKS//2 and random.random()<0.2: delta = random.randint(2,3)
+        elif g=="持続": delta = random.choice([0,1])
+        elif g=="波あり": delta = random.choice([-1,0,1,2])
+        elif g=="身体伸び": delta = random.choice([0,1]);  # small
+        elif g=="守備伸び" and r['Pos'] in ['DF','GK'] and random.random()<0.25: delta = random.randint(1,2)
+        elif g=="攻撃伸び" and r['Pos'] in ['FW','MF'] and random.random()<0.25: delta = random.randint(1,2)
+        else:
+            delta = random.choice([0,0,1])
+
+        if delta!=0:
+            for k in ABILITY_KEYS:
+                df.at[i,k] = min(99, df.at[i,k] + delta//2)
+            df.at[i,'OVR'] = min(99, df.at[i,'OVR'] + delta)
+    return df
+
+# ---------- 名前プール ----------
+# 各国 first/last 30件 + 共通30件
+NAME_POOL = {
+    "COMMON": {
+        "first": ["Alex","Chris","Jordan","Taylor","Sam","Jamie","Ryan","Casey","Robin","Morgan",
+                  "Cameron","Drew","Jesse","Reese","Riley","Avery","Parker","Quinn","Emerson","Hayden",
+                  "Rowan","Skyler","Sawyer","Logan","Blake","Corey","Elliot","Finley","Shawn","Kelly"],
+        "last" : ["Smith","Johnson","Brown","Taylor","Anderson","Thomas","Jackson","White","Harris","Martin",
+                  "Thompson","Garcia","Martinez","Robinson","Clark","Rodriguez","Lewis","Lee","Walker","Hall",
+                  "Allen","Young","King","Wright","Scott","Green","Baker","Adams","Nelson","Carter"]
+    },
     "ENG": {
-        "first": ["Oliver","George","Harry","Jack","Noah","Charlie","Jacob","Thomas","Oscar","William",
+        "first": ["Oliver","Jack","Harry","George","Noah","Charlie","Jacob","Thomas","Oscar","William",
                   "James","Henry","Leo","Joshua","Freddie","Archie","Logan","Alexander","Harrison","Benjamin",
                   "Mason","Ethan","Finley","Lucas","Isaac","Edward","Samuel","Joseph","Dylan","Toby"],
-        "last":  ["Smith","Jones","Taylor","Brown","Davies","Evans","Wilson","Johnson","Roberts","Walker",
-                  "White","Hall","Green","Wood","Martin","Lewis","Turner","Scott","Clark","Harris",
-                  "Baker","Moore","Wright","Hill","Cooper","Edwards","Ward","King","Parker","Campbell"]
+        "last": ["Smith","Jones","Taylor","Brown","Davies","Evans","Wilson","Johnson","Roberts","Walker",
+                 "White","Hall","Green","Wood","Martin","Lewis","Turner","Scott","Clark","Harris",
+                 "Baker","Moore","Wright","Hill","Cooper","Edwards","Ward","King","Parker","Campbell"]
     },
     "GER": {
-        "first": ["Lukas","Leon","Finn","Jonas","Paul","Noah","Elias","Ben","Felix","Maximilian",
-                  "Luis","Moritz","Tim","Fabian","David","Daniel","Simon","Julian","Niklas","Philipp",
-                  "Tobias","Sebastian","Matthias","Erik","Valentin","Jannik","Mats","Marco","Marvin","Joshua"],
-        "last":  ["Muller","Schmidt","Schneider","Fischer","Weber","Meyer","Wagner","Becker","Hoffmann","Schäfer",
-                  "Koch","Richter","Klein","Wolf","Schroder","Neumann","Schwarz","Zimmermann","Braun","Kruger",
-                  "Hofmann","Hartmann","Lange","Schmitt","Werner","Schmitz","Krause","Meier","Lehmann","Hermann"]
+        "first":["Lukas","Felix","Jonas","Finn","Leon","Paul","Maximilian","Noah","Elias","Moritz",
+                 "Niklas","Tim","Lennard","Daniel","David","Jan","Florian","Fabian","Philipp","Timo",
+                 "Sebastian","Simon","Julius","Tobias","Eric","Benjamin","Rafael","Oliver","Kilian","Emil"],
+        "last":["Müller","Schmidt","Schneider","Fischer","Weber","Meyer","Wagner","Becker","Hoffmann","Schäfer",
+                "Koch","Bauer","Richter","Klein","Wolf","Schröder","Neumann","Schwarz","Zimmermann","Braun",
+                "Krüger","Hofmann","Hartmann","Lange","Schmitt","Werner","Schmitz","Krause","Meier","Lehmann"]
     },
     "FRA": {
-        "first": ["Lucas","Hugo","Louis","Adam","Gabriel","Arthur","Raphael","Jules","Ethan","Paul",
-                  "Théo","Tom","Enzo","Nathan","Alexandre","Maxime","Baptiste","Evan","Noah","Nolan",
-                  "Liam","Matteo","Antoine","Clément","Quentin","Victor","Simon","Mathis","Benjamin","Daniel"],
-        "last":  ["Martin","Bernard","Dubois","Thomas","Robert","Richard","Petit","Durand","Leroy","Moreau",
-                  "Simon","Laurent","Lefebvre","Michel","Garcia","David","Bertrand","Roux","Vincent","Fournier",
-                  "Morel","Girard","Andre","Lefevre","Mercier","Dupont","Lambert","Bonnet","Francois","Martinez"]
+        "first":["Louis","Gabriel","Arthur","Jules","Raphaël","Hugo","Léo","Lucas","Adam","Nathan",
+                 "Ethan","Paul","Mathis","Noah","Théo","Tom","Enzo","Sacha","Maxime","Yanis",
+                 "Baptiste","Antoine","Clément","Valentin","Alexandre","Romain","Nicolas","Simon","Benoît","Quentin"],
+        "last":["Martin","Bernard","Thomas","Petit","Robert","Richard","Durand","Dubois","Moreau","Laurent",
+                "Simon","Michel","Lefebvre","Leroy","Roux","David","Bertrand","Morel","Fournier","Girard",
+                "Bonnet","Dupont","Lambert","Fontaine","Rousseau","Vincent","Muller","Lefevre","Faure","Andre"]
     },
     "ESP": {
-        "first": ["Alejandro","Daniel","Pablo","Alvaro","Adrian","David","Javier","Diego","Mario","Sergio",
-                  "Hugo","Miguel","Juan","Carlos","Ruben","Jorge","Andres","Francisco","Raul","Marco",
-                  "Gabriel","Oscar","Ignacio","Iker","Lucas","Gonzalo","Victor","Jaime","Ismael","Rafael"],
-        "last":  ["Garcia","Martinez","Lopez","Sanchez","Gonzalez","Perez","Rodriguez","Fernandez","Gomez","Martin",
-                  "Jimenez","Ruiz","Diaz","Hernandez","Alvarez","Moreno","Muñoz","Alonso","Gutierrez","Navarro",
-                  "Torres","Dominguez","Vazquez","Ramos","Gil","Ramirez","Serrano","Blanco","Molina","Suarez"]
+        "first":["Hugo","Martin","Lucas","Mateo","Leo","Daniel","Alejandro","Pablo","Álvaro","Adrián",
+                 "Mario","Diego","Javier","Enzo","Marcos","Marco","David","Izan","Álex","Bruno",
+                 "Thiago","Gabriel","Sergio","Gonzalo","Eric","Jorge","Rubén","Raúl","Iván","Pedro"],
+        "last":["García","Martínez","López","Sánchez","Pérez","Gómez","Martín","Jiménez","Ruiz","Hernández",
+                "Díaz","Moreno","Muñoz","Álvarez","Romero","Alonso","Gutiérrez","Navarro","Torres","Domínguez",
+                "Vázquez","Ramos","Gil","Ramírez","Serrano","Blanco","Suárez","Molina","Morales","Ortega"]
     },
     "ITA": {
-        "first": ["Lorenzo","Alessandro","Leonardo","Francesco","Mattia","Andrea","Matteo","Gabriele","Riccardo","Tommaso",
-                  "Edoardo","Giuseppe","Antonio","Diego","Filippo","Nicolo","Federico","Samuel","Michele","Marco",
-                  "Daniele","Raffaele","Christian","Simone","Roberto","Pietro","Enrico","Salvatore","Emanuele","Stefano"],
-        "last":  ["Rossi","Russo","Ferrari","Esposito","Bianchi","Romano","Colombo","Ricci","Marino","Greco",
-                  "Bruno","Gallo","Conti","De Luca","Mancini","Costa","Giordano","Rizzo","Lombardi","Moretti",
-                  "Barbieri","Fontana","Santoro","Mariani","Rinaldi","Caruso","Ferrara","Ferri","Bianco","Grasso"]
+        "first":["Leonardo","Francesco","Alessandro","Lorenzo","Mattia","Andrea","Gabriele","Matteo","Riccardo","Tommaso",
+                 "Edoardo","Davide","Federico","Giuseppe","Simone","Antonio","Daniele","Nicola","Pietro","Stefano",
+                 "Paolo","Salvatore","Marco","Michele","Raffaele","Enrico","Filippo","Luca","Alberto","Giovanni"],
+        "last":["Rossi","Ferrari","Esposito","Bianchi","Romano","Colombo","Ricci","Marino","Greco","Bruno",
+                "Gallo","Conti","De Luca","Mancini","Costa","Giordano","Rizzo","Lombardi","Barbieri","Moretti",
+                "Fontana","Santoro","Mariani","Rinaldi","Caruso","Ferrara","Fabbri","Bianco","Martini","Pellegrini"]
     },
     "NED": {
-        "first": ["Daan","Sem","Lucas","Levi","Finn","Milan","Liam","Noah","Luuk","Thijs",
-                  "Jesse","Bram","Mees","Timo","Ties","Julian","Max","Jens","Niels","Sven",
-                  "Bas","Ruben","Koen","Floris","Thomas","Gijs","Nick","Pepijn","Sam","Rens"],
-        "last":  ["de Jong","de Vries","van den Berg","van Dijk","Bakker","Jansen","Visser","Smit","Meijer","Mulder",
-                  "Bos","Vos","Peters","Hendriks","Dekker","Brouwer","van Leeuwen","Koster","van der Meer","Kuiper",
-                  "Kok","Schouten","Vermeulen","Post","van Dam","Willems","Hermans","van der Linden","Hoekstra","Sanders"]
+        "first":["Daan","Sem","Levi","Finn","Lucas","Liam","Milan","Thijs","Jesse","Noah",
+                 "Bram","Niels","Gijs","Timo","Sven","Luuk","Joep","Jasper","Mees","Hugo",
+                 "Ruben","Stijn","Sam","Nick","Thomas","Joris","Victor","Bas","Pieter","Koen"],
+        "last":["de Jong","Jansen","de Vries","van den Berg","van Dijk","Bakker","Janssen","Visser","Smit","Meijer",
+                "de Boer","Mulder","de Groot","Bos","Vos","Peters","Hendriks","Dekker","van Leeuwen","Kok",
+                "Jacobs","van der Meer","Willems","van Dam","Post","Koster","van der Heijden","Kuipers","Boer","Veenstra"]
     },
     "BRA": {
-        "first": ["Joao","Gabriel","Pedro","Lucas","Matheus","Gustavo","Felipe","Rafael","Bruno","Thiago",
-                  "Diego","Daniel","Eduardo","Vitor","Leonardo","Vinicius","Anderson","Alex","Paulo","Rodrigo",
-                  "Marcos","Renan","Caio","Igor","Fernando","Hugo","Samuel","Antonio","Nathan","Luiz"],
-        "last":  ["Silva","Santos","Oliveira","Souza","Rodrigues","Ferreira","Almeida","Costa","Carvalho","Gomes",
-                  "Martins","Araujo","Barbosa","Ribeiro","Alves","Pereira","Lima","Nascimento","Moreira","Teixeira",
-                  "Correia","Melo","Cardoso","Rocha","Dias","Campos","Fonseca","Monteiro","Batista","Freitas"]
+        "first":["João","Gabriel","Mateus","Lucas","Pedro","Guilherme","Gustavo","Rafael","Felipe","Bruno",
+                 "Enzo","Luiz","Daniel","Thiago","Eduardo","Vitor","Diego","Caio","Henrique","Samuel",
+                 "Murilo","Fernando","André","Rodrigo","Marcelo","Antônio","Leonardo","Vinícius","Miguel","Alex"],
+        "last":["Silva","Santos","Oliveira","Souza","Rodrigues","Ferreira","Alves","Pereira","Lima","Gomes",
+                "Costa","Ribeiro","Carvalho","Nascimento","Araujo","Moreira","Dias","Barbosa","Vieira","Cardoso",
+                "Rocha","Neves","Cunha","Monteiro","Machado","Mendes","Freitas","Teixeira","Ramos","Campos"]
     },
     "POR": {
-        "first": ["Tiago","Goncalo","Diogo","Miguel","Joao","Rodrigo","Andre","Rafael","Bruno","Hugo",
-                  "Pedro","Luis","Carlos","Ricardo","Paulo","Nuno","Fernando","Manuel","Eduardo","Vitor",
-                  "Filipe","Alexandre","Sergio","Fabio","Rui","Marco","Samuel","Henrique","Antonio","Gil"],
-        "last":  ["Silva","Santos","Ferreira","Pereira","Oliveira","Costa","Rodrigues","Martins","Jesus","Sousa",
-                  "Fernandes","Goncalves","Lopes","Marques","Alves","Ribeiro","Carvalho","Cardoso","Pinto","Teixeira",
-                  "Moreira","Correia","Rocha","Nunes","Vieira","Monteiro","Mendes","Azevedo","Figueiredo","Machado"]
+        "first":["João","Martim","Rodrigo","Afonso","Santiago","Tomás","Gonçalo","Martim","Miguel","Francisco",
+                 "Diogo","Duarte","Lourenço","Xavier","Tiago","Alexandre","Rúben","Luís","Pedro","Carlos",
+                 "Henrique","Rafael","André","Vasco","Daniel","António","Bruno","Hugo","Nuno","Ricardo"],
+        "last":["Silva","Santos","Ferreira","Pereira","Oliveira","Costa","Sousa","Rodrigues","Martins","Jesus",
+                "Gomes","Marques","Alves","Almeida","Ribeiro","Pinto","Carvalho","Teixeira","Moreira","Correia",
+                "Mendes","Nunes","Soares","Vieira","Monteiro","Cardoso","Sousa","Fonseca","Gonçalves","Machado"]
     },
     "BEL": {
-        "first": ["Liam","Noah","Jules","Arthur","Lucas","Louis","Victor","Adam","Gabriel","Oscar",
-                  "Mathis","Eden","Nathan","Thomas","Benjamin","Alexis","Hugo","Maxime","Simon","Theo",
-                  "Baptiste","Ruben","Stan","Milan","Thibault","Matteo","Dries","Yoran","Lars","Quinten"],
-        "last":  ["Peeters","Janssens","Maes","Jacobs","Mertens","Willems","Claes","Goossens","Wouters","De Smet",
-                  "Dubois","Aerts","Dumont","Hermans","Martens","Vermeulen","Lemmens","Pauwels","Smets","Hubert",
-                  "Gielen","Vos","Michiels","Engelen","Luyten","Smeets","Leclercq","Lambrecht","Cornelis","Vanderlinden"]
+        "first":["Noah","Lucas","Arthur","Liam","Louis","Jules","Hugo","Milan","Adam","Gabriel",
+                 "Victor","Baptiste","Thomas","Nathan","Enzo","Mathis","Ethan","Raphaël","Sacha","Maxime",
+                 "Tim","Simon","Quentin","Benjamin","Daan","Jens","Wout","Robin","Seppe","Lars"],
+        "last":["Peeters","Janssens","Maes","Jacobs","Mertens","Willems","Claes","Goossens","Wouters","De Smet",
+                "Dubois","Lambert","Dupont","Leroy","Van Damme","Vermeulen","De Clercq","Pauwels","Hendrickx","De Winter",
+                "Desmet","Van den Bossche","De Vos","Verhoeven","Martens","Michiels","De Backer","Coppens","Vandenberghe","Smets"]
     },
     "TUR": {
-        "first": ["Mehmet","Mustafa","Ahmet","Ali","Huseyin","Ibrahim","Hasan","Osman","Yusuf","Fatih",
-                  "Emre","Murat","Omer","Burak","Serkan","Ismail","Kadir","Halil","Erdem","Furkan",
-                  "Cem","Onur","Can","Volkan","Gokhan","Tugrul","Alper","Sinan","Recep","Yasin"],
-        "last":  ["Yilmaz","Kaya","Demir","Sahin","Celik","Yildiz","Aydin","Ozdemir","Arslan","Kilic",
-                  "Ozkan","Simsek","Polat","Avci","Dogan","Korkmaz","Aslan","Tekin","Gunes","Keskin",
-                  "Erdogan","Kurt","Aksoy","Cetin","Aktaş","Işık","Bulut","Turan","Ucar","Bozkurt"]
+        "first":["Mehmet","Mustafa","Ahmet","Ali","Hüseyin","Hasan","İbrahim","İsmail","Yusuf","Osman",
+                 "Murat","Fatih","Serkan","Emre","Ömer","Kemal","Burak","Furkan","Halil","Ramazan",
+                 "Eren","Batuhan","Uğur","Can","Kaan","Onur","Gökhan","Selim","Cem","Barış"],
+        "last":["Yılmaz","Kaya","Demir","Şahin","Çelik","Yıldız","Yıldırım","Öztürk","Aydın","Arslan",
+                "Doğan","Kılıç","Aslan","Çetin","Dere","Güneş","Bozkurt","Koç","Kaplan","Avcı",
+                "Polat","Uzun","Aksoy","Duman","Bulut","Özdemir","Taş","Erdem","Türkmen","Özkan"]
     },
     "ARG": {
-        "first": ["Juan","Matias","Nicolas","Federico","Santiago","Agustin","Joaquin","Lucas","Martin","Gonzalo",
-                  "Diego","Ezequiel","Facundo","Leandro","Maximiliano","Pablo","Bruno","Alejandro","Cristian","Sebastian",
-                  "Emiliano","Damian","Hernan","Rodrigo","Esteban","Franco","Ivan","Mariano","Nahuel","Mauricio"],
-        "last":  ["Gonzalez","Rodriguez","Fernandez","Lopez","Martinez","Garcia","Perez","Sanchez","Romero","Alvarez",
-                  "Torres","Ruiz","Diaz","Suarez","Castro","Gutierrez","Gimenez","Acosta","Benitez","Silva",
-                  "Molina","Ortega","Delgado","Vega","Sosa","Herrera","Aguirre","Ponce","Ramos","Mendez"]
+        "first":["Mateo","Thiago","Benjamín","Valentino","Joaquín","Lorenzo","Santino","Tomás","Lucas","Martín",
+                 "Juan","Francisco","Agustín","Ignacio","Facundo","Emiliano","Matías","Nicolás","Bruno","Axel",
+                 "Iker","Dylan","Gael","Simón","Iván","Renzo","Ulises","Bautista","Ramiro","Gonzalo"],
+        "last":["González","Rodríguez","Gómez","Fernández","López","Díaz","Martínez","Pérez","Sánchez","Romero",
+                "Sosa","Álvarez","Torres","Ruiz","Ramírez","Flores","Acosta","Benítez","Medina","Suárez",
+                "Herrera","Molina","Castro","Ortiz","Núñez","Rojas","Arias","Vera","Silva","Ríos"]
     },
     "URU": {
-        "first": ["Carlos","Diego","Pablo","Gaston","Sergio","Jorge","Maxi","Matias","Sebastian","Martin",
-                  "Nicolas","Cristian","Federico","Agustin","Rodrigo","Bruno","Emiliano","Facundo","Gabriel","Jonathan",
-                  "Hernan","Leandro","Lucas","Nahuel","Santiago","Victor","Marcos","Franco","Ruben","Ignacio"],
-        "last":  ["Gonzalez","Rodriguez","Fernandez","Perez","Martinez","Garcia","Lopez","Sanchez","Suarez","Castro",
-                  "Gomez","Silva","Diaz","Acosta","Torres","Ramos","Vazquez","Mendez","Cabrera","Pereyra",
-                  "Mora","Aguilar","Pereira","Arias","Benitez","Medina","Mendoza","Herrera","Viera","Sosa"]
+        "first":["Santiago","Agustín","Juan","Lucas","Matías","Nicolás","Diego","Bruno","Martín","Facundo",
+                 "Emiliano","Franco","Thiago","Benjamín","Joaquín","Tomás","Valentín","Gonzalo","Ramiro","Pablo",
+                 "Ignacio","Sebastián","Nahuel","Axel","Kevin","Dylan","Lautaro","Gabriel","Leonardo","Felipe"],
+        "last":["González","Rodríguez","Pérez","Fernández","López","Martínez","Silva","García","Sánchez","Díaz",
+                "Álvarez","Torres","Ruiz","Suárez","Ramos","Castro","Vega","Méndez","Vázquez","Herrera",
+                "Cardozo","Navarro","Cabrera","Rojas","Acuña","Aguiar","Valdez","Peralta","Crespo","Brum"]
     },
     "COL": {
-        "first": ["Juan","Andres","Carlos","Jorge","Diego","Santiago","Luis","Felipe","Daniel","Camilo",
-                  "Sebastian","Miguel","Oscar","Julian","Fabian","Jonathan","Victor","Cristian","Esteban","Ivan",
-                  "Fernando","Armando","Wilson","Mauricio","Alejandro","Ricardo","Nicolas","Hernan","Edwin","Pedro"],
-        "last":  ["Gomez","Rodriguez","Martinez","Garcia","Perez","Gonzalez","Sanchez","Ramirez","Diaz","Torres",
-                  "Castro","Moreno","Suarez","Reyes","Gutierrez","Vargas","Rojas","Ortiz","Rubio","Pineda",
-                  "Mendoza","Guerrero","Salazar","Quintero","Herrera","Cortes","Arias","Velasquez","Sandoval","Peña"]
+        "first":["Santiago","Juan","Mateo","Nicolás","Samuel","David","Daniel","Sebastián","Andrés","Tomás",
+                 "Jerónimo","Emmanuel","Julián","Gabriel","Felipe","Emilio","Cristian","Esteban","Brayan","Kevin",
+                 "Johan","Harold","Carlos","Jorge","Michael","Patrick","Diego","Luis","Oscar","Rafael"],
+        "last":["García","Rodríguez","Martínez","López","González","Pérez","Sánchez","Ramírez","Torres","Álvarez",
+                "Castro","Gómez","Díaz","Ruiz","Moreno","Muñoz","Rojas","Espinosa","Suárez","Herrera",
+                "Vargas","Guerrero","Ortiz","Rincón","Reyes","Navarro","Valencia","Cortés","Molina","Mejía"]
     },
     "USA": {
-        "first": ["James","John","Robert","Michael","William","David","Richard","Joseph","Thomas","Charles",
-                  "Christopher","Daniel","Matthew","Anthony","Mark","Donald","Steven","Paul","Andrew","Joshua",
-                  "Kevin","Brian","Edward","George","Timothy","Jason","Jeffrey","Ryan","Jacob","Gary"],
-        "last":  ["Smith","Johnson","Williams","Brown","Jones","Garcia","Miller","Davis","Rodriguez","Martinez",
-                  "Hernandez","Lopez","Gonzalez","Wilson","Anderson","Thomas","Taylor","Moore","Jackson","Martin",
-                  "Lee","Perez","Thompson","White","Harris","Sanchez","Clark","Ramirez","Lewis","Robinson"]
+        "first":["Liam","Noah","Oliver","Elijah","James","William","Benjamin","Lucas","Henry","Alexander",
+                 "Mason","Michael","Ethan","Daniel","Jacob","Logan","Jackson","Levi","Sebastian","Mateo",
+                 "Jack","Owen","Theodore","Aiden","Samuel","Joseph","John","David","Wyatt","Matthew"],
+        "last":["Smith","Johnson","Williams","Brown","Jones","Garcia","Miller","Davis","Rodriguez","Martinez",
+                "Hernandez","Lopez","Gonzalez","Wilson","Anderson","Thomas","Taylor","Moore","Jackson","Martin",
+                "Lee","Perez","Thompson","White","Harris","Sanchez","Clark","Ramirez","Lewis","Robinson"]
     },
     "MEX": {
-        "first": ["Juan","Jose","Luis","Carlos","Jorge","Miguel","Antonio","Pedro","Jesus","Francisco",
-                  "Rafael","Ricardo","Alejandro","Manuel","Fernando","Hector","Eduardo","Javier","Arturo","Sergio",
-                  "Daniel","Adrian","Raul","Victor","Mario","Emilio","Ernesto","Gustavo","Armando","Osvaldo"],
-        "last":  ["Hernandez","Garcia","Martinez","Lopez","Gonzalez","Perez","Rodriguez","Sanchez","Ramirez","Cruz",
-                  "Flores","Gomez","Morales","Vargas","Reyes","Diaz","Torres","Gutierrez","Ruiz","Chavez",
-                  "Ramos","Mendoza","Ortega","Castillo","Silva","Delgado","Campos","Ayala","Pineda","Munoz"]
+        "first":["Santiago","Mateo","Leonardo","Matías","Emiliano","Diego","Sebastián","Daniel","Emilio","Gael",
+                 "Gabriel","Alexander","Thiago","Pablo","Carlos","Andrés","Fernando","Eduardo","Jorge","Javier",
+                 "Iván","Erick","Héctor","Luis","Marco","Rafael","Adrián","Roberto","Mauricio","Óscar"],
+        "last":["Hernández","García","Martínez","López","González","Pérez","Rodríguez","Sánchez","Ramírez","Cruz",
+                "Flores","Gómez","Díaz","Reyes","Torres","Gutiérrez","Ruiz","Mendoza","Aguilar","Ortiz",
+                "Morales","Delgado","Castillo","Vargas","Jiménez","Chávez","Ramos","Guerrero","Salazar","Silva"]
     },
-    "SAU": {  # Saudi Arabia
-        "first": ["Abdullah","Mohammed","Ahmed","Ali","Hassan","Omar","Yousef","Fahad","Majed","Turki",
-                  "Khalid","Saud","Nasser","Ibrahim","Saif","Mansour","Talal","Sultan","Abdulrahman","Faisal",
-                  "Saeed","Rayan","Adel","Badr","Saleh","Waleed","Sami","Bandar","Ziad","Khaled"],
-        "last":  ["Al-Saud","Al-Harbi","Al-Qahtani","Al-Shahrani","Al-Ghamdi","Al-Otaibi","Al-Mutairi","Al-Dossari","Al-Subaie","Al-Johani",
-                  "Al-Zahrani","Al-Anazi","Al-Rashid","Al-Shehri","Al-Hazmi","Al-Amri","Al-Malki","Al-Ahmad","Al-Fahad","Al-Bishi",
-                  "Al-Dhafeeri","Al-Harthi","Al-Balawi","Al-Sayed","Al-Zayed","Al-Najjar","Al-Bassam","Al-Jaber","Al-Nasser","Al-Faraj"]
+    "SAU": {
+        "first":["Abdullah","Mohammed","Abdulaziz","Fahad","Khalid","Ahmed","Saud","Turki","Sultan","Hassan",
+                 "Yousef","Omar","Talal","Rayan","Nawaf","Bandar","Salman","Ibrahim","Mahmoud","Adel",
+                 "Anas","Badr","Faisal","Hani","Hamza","Marwan","Rashed","Saeed","Ziyad","Majed"],
+        "last":["Al-Saud","Al-Harbi","Al-Qahtani","Al-Mutairi","Al-Shammari","Al-Otaibi","Al-Ghamdi","Al-Zahrani","Al-Dosari","Al-Anazi",
+                "Al-Shehri","Al-Subaie","Al-Johani","Al-Farhan","Al-Bishi","Al-Malki","Al-Salem","Al-Balawi","Al-Dhafiri","Al-Hajari",
+                "Al-Najjar","Al-Suwaidi","Al-Ajmi","Al-Saadi","Al-Omari","Al-Hassan","Al-Asmari","Al-Fahad","Al-Harithi","Al-Harqan"]
     },
-    "NGA": {  # Nigeria
-        "first": ["Emeka","Chinedu","Ifeanyi","Segun","Ibrahim","Sule","Sunday","Kingsley","Emmanuel","Joseph",
-                  "Samuel","Peter","Abdul","Uche","Tunde","Collins","Bright","Godwin","Sani","Moses",
-                  "Charles","Ikenna","Nonso","Kelechi","Chukwuemeka","Chigozie","Olamide","Ayodele","Oluwatobi","Kunle"],
-        "last":  ["Okafor","Okeke","Ogunleye","Adeyemi","Balogun","Okoye","Ojo","Eze","Abiola","Afolayan",
-                  "Adewale","Olawale","Ogunbiyi","Ibrahim","Mohammed","Danladi","Yakubu","Nwosu","Chukwu","Odinaka",
-                  "Onyekachi","Opara","Olatunji","Oladipo","Ogunbanjo","Ezekiel","Ogunjobi","Akintola","Abubakar","Oladimeji"]
+    "NGA": {
+        "first":["Emeka","Chukwu","Ifeanyi","Uche","Chinedu","Tunde","Ade","Kelechi","Oluwaseun","Segun",
+                 "Seyi","Babatunde","Ayo","Femi","Kunle","Gbenga","Olamide","Sola","Nonso","Uzo",
+                 "Chima","Ikenna","Ibrahim","Yakubu","Isaac","Kelvin","Joseph","Michael","Samuel","Peter"],
+        "last":["Okafor","Okeke","Okonkwo","Olawale","Ogunleye","Balogun","Adebayo","Adeyemi","Adenuga","Ogunbiyi",
+                "Nwankwo","Nwosu","Nnamdi","Chukwu","Eze","Udo","Ojo","Ibrahim","Abdullahi","Yakubu",
+                "Onyeka","Oputa","Oparah","Olowo","Odiase","Akinwale","Ogunjimi","Ige","Olonisakin","Aliyu"]
     },
-    "MAR": {  # Morocco
-        "first": ["Youssef","Mohamed","Achraf","Hassan","Said","Omar","Mehdi","Ismail","Amine","Rachid",
-                  "Ayoub","Anass","Karim","Hamza","Zakaria","Yassine","Imad","Reda","Walid","Khalid",
-                  "Nabil","Idriss","Soufiane","Aziz","Tarik","Abdelaziz","Abdelkader","Mounir","Abdelhak","Samir"],
-        "last":  ["El Fassi","El Idrissi","El Amrani","Benali","Benyoussef","El Haddad","El Ghazali","El Mansouri","Bennani","El Hachimi",
-                  "El Moussaoui","Bourquia","Chakiri","Sebbar","Ait Taleb","El Abidi","El Yousfi","El Jouni","Azouzi","Ait Lahcen",
-                  "Hassani","Ramdani","El Amiri","Harrak","El Azzouzi","Bouazza","El Hamdi","Khattabi","Bakkali","Bouhaddi"]
+    "MAR": {
+        "first":["Youssef","Mohamed","Omar","Ayoub","Hassan","Anas","Mehdi","Ilyas","Khalid","Hamza",
+                 "Soufiane","Ismail","Abdelaziz","Rachid","Reda","Yassine","Nabil","Tariq","Said","Imad",
+                 "Karim","Abdelkader","Walid","Idriss","Bilal","Amin","Adil","Mounir","Samir","Hicham"],
+        "last":["El Fassi","Ben Ali","El Idrissi","Bennani","El Amrani","Bouzid","El Mahdi","El Haddad","El Mansouri","Benjelloun",
+                "El Ghazal","Chakiri","Alaoui","El Fakir","El Arbi","Benabdeljalil","Belkacem","Cherkaoui","El Ouahabi","El Khattabi",
+                "Bensaid","Mouline","Bouchaib","Amrani","El Ouali","Othmani","Zaidi","Bendahmane","El Bouzidi","Jebbar"]
     },
     "KOR": {
-        "first": ["Min-jae","Joon-ho","Ji-hoon","Sung-min","Dong-hyun","Hyun-woo","Seung-hyun","Jae-won","Young-ho","Min-seok",
-                  "Tae-hyun","Jin-woo","Sang-hoon","Byung-ho","Woo-jin","Hyeon-su","Kang-min","Do-hyun","Seok-jin","Jun-seo",
-                  "Yoon-seo","Dae-hyun","Sang-min","Jong-hyun","Hyun-jin","Ji-ho","Seung-woo","Chul-soo","Min-ho","Yong-ho"],
-        "last":  ["Kim","Lee","Park","Choi","Jung","Kang","Cho","Yoon","Jang","Lim",
-                  "Han","Shin","Yoo","Ahn","Seo","Kwon","Hwang","Oh","Song","Hong",
-                  "Yang","Moon","Son","Bae","Baek","Nam","Heo","No","Gu","Ryu"]
+        "first":["Minjun","Seo-Jun","Ha-Jun","Ji-Ho","Do-Yoon","Ji-Hoon","Joon-Woo","Si-Woo","Ye-Jun","Jin-Woo",
+                 "Hyun-Woo","Sung-Min","Ji-Min","Dong-Hyun","Young-Ho","Jae-Hyun","Seung-Hyun","Joon-Ho","Tae-Hyun","Seung-Woo",
+                 "Sang-Hoon","Jin-Ho","Woo-Jin","Jae-Won","Hyeon-Seo","Chan-Woo","Jun-Young","Min-Su","Tae-Min","Yong-Jun"],
+        "last":["Kim","Lee","Park","Choi","Jung","Kang","Cho","Yoon","Jang","Lim",
+                "Han","Shin","Seo","Kwon","Hwang","Ahn","Song","Ryu","Jeon","Hong",
+                "Oh","Yang","Moon","Son","Bae","Baek","Yoo","Nam","Sim","Heo"]
     },
     "AUS": {
-        "first": ["Jack","Noah","William","James","Lucas","Hunter","Jackson","Lachlan","Ethan","Cooper",
-                  "Oliver","Leo","Harrison","Max","Isaac","Benjamin","Mason","Henry","Samuel","Thomas",
-                  "Alexander","Archie","Elijah","Hudson","Levi","Logan","Sebastian","Oscar","Joseph","Charlie"],
-        "last":  ["Smith","Jones","Williams","Brown","Wilson","Taylor","Johnson","White","Martin","Anderson",
-                  "Thompson","Nguyen","Walker","Harris","Kelly","King","Wright","Scott","Young","Allen",
-                  "Clarke","Mitchell","Morris","Hall","Adams","Roberts","Campbell","Phillips","Evans","Turner"]
-    },
-    "GEN": {  # どこでも使える汎用名
-        "first": ["Alex","Chris","Sam","Jamie","Jordan","Taylor","Casey","Morgan","Robin","Cameron",
-                  "Riley","Avery","Quinn","Hayden","Skyler","Kendall","Reese","Rowan","Peyton","Dakota",
-                  "Elliot","Finley","Harper","Jules","Kai","Lee","Micah","Noel","Parker","Shay"],
-        "last":  ["Gray","Hill","West","Stone","Lane","Reed","Ford","Woods","Grant","Cole",
-                  "Mason","Shaw","Dunn","Watts","Cross","Kerr","Black","Snow","Frost","Day",
-                  "Fox","Lake","Pope","Glass","Miles","Page","Rice","Sharp","Watt","Ball"]
+        "first":["Jack","Noah","William","Oliver","Thomas","Lucas","James","Liam","Henry","Charlie",
+                 "Leo","Mason","Ethan","Alexander","Harrison","Cooper","Hunter","Xavier","Isaac","Levi",
+                 "Archie","Jacob","Benjamin","Samuel","Hudson","Logan","Joshua","Nate","Angus","Flynn"],
+        "last":["Smith","Jones","Williams","Brown","Taylor","Wilson","Johnson","White","Martin","Anderson",
+                "Thompson","Nguyen","Harris","Walker","Clark","Hall","Young","King","Wright","Scott",
+                "Green","Baker","Adams","Nelson","Mitchell","Roberts","Campbell","Moore","Murphy","Carter"]
     }
 }
 
-# ---- プレースタイル候補（重複なく） ----
-PLAYSTYLE_BASE = [
-    "チーム至上主義","スーパーリーダー","職人","司令塔","タックルマスター","ゲームメーカー","チャンスメーカー",
-    "ムードメーカー","影の支配者","爆発型","クロスハンター","フリーキック職人","ジョーカー","空中戦の覇者",
-    "インナーラップSB","セカンドストライカー","起点型GK","守護神","スナイパー","ドリブラー","シャドーストライカー",
-    "カットイン職人","フィニッシャー","ワークホース","ボールハンター","レジスタ","プレッサー","ハードマーカー",
-    "ポストプレイヤー","ラインブレーカー"
-]
-
-# 国別に強調するスタイル（加算用）
-NATION_STYLE_EXTRA = {
-    "ENG": ["フィジカルモンスター","空中戦の覇者","ロングスロー"],
-    "GER": ["規律派","インテリジェンス","精密機械"],
-    "FRA": ["アーティスト","テクニシャン","シャドーストライカー"],
-    "ESP": ["ティキタカ使い","レジスタ","パサー"],
-    "ITA": ["カテナチオ守備者","ディフェンスリーダー","戦術家"],
-    "NED": ["トータルフットボール","偽9番","多才型"],
-    "BRA": ["サンバドリブラー","ファンタジスタ","フリーキック職人"],
-    "POR": ["カットイン職人","エレガント","トリックスター"],
-    "BEL": ["ユーティリティ","ポリバレント","ボックスtoボックス"],
-    "TUR": ["闘魂タイプ","情熱家","ショットガン"],
-    "ARG": ["メンタルモンスター","ラテンの殺し屋","ゲームメーカー"],
-    "URU": ["闘犬","ハードワーカー","魂のストライカー"],
-    "COL": ["快速ウインガー","カウンターエース","爆発型"],
-    "USA": ["フィジカルモンスター","運動量おばけ","メンタルリーダー"],
-    "MEX": ["技巧派","チャンスメイカー","スピードスター"],
-    "SAU": ["砂漠の戦士","対人勝負師","メンタル強者"],
-    "NGA": ["爆発型","身体能力特化","空中戦の覇者"],
-    "MAR": ["技巧派","俊敏ドリブラー","ボールウィナー"],
-    "KOR": ["走力モンスター","規律派","ハードワーカー"],
-    "AUS": ["タフガイ","万能型","戦術理解度高"],
-    "GEN": []
-}
-
-# ---- 成長タイプ（プレースタイルからは除外） ----
-GROWTH_TYPES = ["超晩成型","晩成型","通常型","やや早熟型","超早熟型"]
-
-# 国別ビアスで使う係数（上げたい能力:倍率）
-NATION_ABILITY_BIAS = {
-    "ENG": {"Phy":1.1,"Pow":1.05,"Def":1.05},
-    "GER": {"Men":1.1,"Def":1.05,"Pas":1.05},
-    "FRA": {"Tec":1.08,"Sht":1.05,"Spd":1.05},
-    "ESP": {"Pas":1.1,"Tec":1.08,"Men":1.02},
-    "ITA": {"Def":1.1,"Men":1.05,"Pas":1.02},
-    "NED": {"Pas":1.06,"Tec":1.06,"Spd":1.02},
-    "BRA": {"Tec":1.1,"Sht":1.06,"Spd":1.04},
-    "POR": {"Tec":1.08,"Pas":1.05,"Sht":1.03},
-    "BEL": {"MF":1.0},  # unused but kept
-    "TUR": {"Pow":1.06,"Men":1.05,"Phy":1.04},
-    "ARG": {"Men":1.06,"Sht":1.06,"Tec":1.04},
-    "URU": {"Men":1.08,"Def":1.05,"Pow":1.03},
-    "COL": {"Spd":1.07,"Sht":1.05,"Tec":1.03},
-    "USA": {"Phy":1.08,"Sta":1.05,"Pow":1.03},
-    "MEX": {"Tec":1.06,"Pas":1.05,"Spd":1.03},
-    "SAU": {"Men":1.05,"Sta":1.04,"Tec":1.02},
-    "NGA": {"Phy":1.1,"Spd":1.07,"Pow":1.05},
-    "MAR": {"Tec":1.06,"Spd":1.04,"Men":1.03},
-    "KOR": {"Sta":1.08,"Men":1.06,"Spd":1.03},
-    "AUS": {"Phy":1.05,"Sta":1.05,"Men":1.03},
-    "GEN": {}
-}
-
-# ---- 名前生成 ----
-def gen_unique_name(nat:str, used:set):
-    pool = NAME_POOLS.get(nat, NAME_POOLS["GEN"])
-    for _ in range(200):  # ループ保険
-        n = f"{random.choice(pool['first'])} {random.choice(pool['last'])}"
+def gen_unique_name(nat:str, used:set)->str:
+    pools = NAME_POOL.get(nat, NAME_POOL["COMMON"])
+    fn_list = pools["first"] + NAME_POOL["COMMON"]["first"]
+    ln_list = pools["last"]  + NAME_POOL["COMMON"]["last"]
+    while True:
+        n = f"{random.choice(fn_list)} {random.choice(ln_list)}"
         if n not in used:
             used.add(n)
             return n
-    # 予備
-    n = f"{random.choice(NAME_POOLS['GEN']['first'])} {random.choice(NAME_POOLS['GEN']['last'])}"
-    used.add(n)
-    return n
 
-# ---- スタイル/成長プール取得 ----
-def pick_style_pool(nat:str):
-    base = PLAYSTYLE_BASE.copy()
-    extra = NATION_STYLE_EXTRA.get(nat, [])
-    return list(dict.fromkeys(base + extra))  # 重複除去
-
-def pick_growth_pool(nat:str):
-    return GROWTH_TYPES  # 今回は共通
-
-# ---- 能力バイアス適用 ----
-def apply_bias(stats:dict, nat:str):
-    bias = NATION_ABILITY_BIAS.get(nat, {})
-    for k,v in bias.items():
-        if k in stats:
-            stats[k] = int(stats[k]*v)
-    return stats
+# ---------- 国籍別バイアス ----------
+def apply_bias(stats:dict, nat:str)->dict:
+    s = stats.copy()
+    if nat in ["ESP","FRA","BRA","ARG","POR","COL","MEX"]:
+        s['Tec'] = min(99, s['Tec'] + 3)
+    if nat in ["GER","ITA","URU","BEL","MAR","TUR"]:
+        s['Def'] = min(99, s['Def'] + 3)
+    if nat in ["NGA","USA","AUS","KOR","SAU"]:
+        s['Phy'] = min(99, s['Phy'] + 3)
+    return s
 
 # =========================
-# Part 3 / 10  --- リーグ/選手生成/初期化（Italyのみ2部構成）
+# Part 3 / 12  --- League / Club builders & Standings init
 # =========================
 
-# ----- 国コード一覧（20か国） -----
+# ----- 国一覧（ユーザー指定） -----
 NATIONS = ["ENG","GER","FRA","ESP","ITA","NED","BRA","POR","BEL","TUR",
            "ARG","URU","COL","USA","MEX","SAU","NGA","MAR","KOR","AUS"]
 
-# ----- リーグ構成（各国1部。既存5か国＋Italyは2部） -----
-def build_leagues(my_club:str):
-    leagues = {
-        "England": {
-            "1部": ["Strive FC","Oxford Rovers","Kingsbridge City","Bristol Forge","Camden Borough",
-                    "Lancaster Gate","Chelsea Heath","Manchester Vale","Liverpool Docks","Leeds Forge"],
-            "2部": ["Brighton Seasiders","Derby Miners","Norwich Meadow","Reading Royals","Hull Mariners",
-                    "Swansea River","Plymouth Harbors","Coventry Motors","Sheffield Steel","Portsmouth Sailors"]
-        },
-        "Spain": {
-            "1部": ["Sevilla Reds","Madrid Norte","Catalunya Blau","Valencia Citrus","Bilbao Iron",
-                    "Mallorca Waves","Granada Alhambra","Zaragoza Ebro","La Coruna Breeze","Toledo Town"],
-            "2部": ["Tenerife Sun","Oviedo Peaks","Cadiz Harbor","Murcia Huerta","Almeria Desert",
-                    "Lugo Forest","Huelva Coast","Girona Pyrenees","Burgos Castle","Leon Cathedral"]
-        },
-        "France": {
-            "1部": ["Lille City","Lyon Lumière","Marseille Port","Bordeaux Vignes","Toulouse Violet",
-                    "Nantes Atlantique","Rennes Armor","Nice Azure","Reims Champagne","Strasbourg Rhine"],
-            "2部": ["Dijon Moutarde","Angers Loire","Metz Lorraine","Brest Océan","Le Havre Dockers",
-                    "Caen Normand","Grenoble Alpes","Sochaux Lions","Tours Loire","Amiens Picardie"]
-        },
-        "Germany": {
-            "1部": ["Munich Stars","Berlin Spree","Hamburg Hafen","Dortmund Coal","Leipzig Trade",
-                    "Frankfurt Main","Stuttgart Motor","Bremen Weser","Hannover Messe","Koln Dom"],
-            "2部": ["Bochum Ruhr","Freiburg Blackforest","Augsburg Fugger","Kiel Fjord","Nurnberg Burg",
-                    "Dresden Elbe","Heidenheim Brenz","Regensburg Donau","Rostock Hanse","Paderborn Senne"]
-        },
-        "Netherlands": {
-            "1部": ["Amsterdam Canal","Rotterdam Harbor","Utrecht Dom","Eindhoven Light","Alkmaar Cheese",
-                    "Arnhem Bridge","Groningen North","Nijmegen Waalkade","Zwolle IJssel","Heerenveen Frisia"],
-            "2部": ["Maastricht Meuse","Tilburg Textile","Breda Nassau","Leeuwarden Crown","Venlo Maas",
-                    "Dordrecht Delta","Deventer Trade","Emmen Drenthe","Sittard Fortuna","Helmond Brabants"]
-        },
+# ----- クラブ名自動生成用語彙（被り防止ユニーク生成） -----
+ADJ_WORDS  = ["Apex","Crystal","Liberty","Imperial","Emerald","Crimson","Azure","Sterling",
+              "Valiant","Solar","Arctic","Urban","Royal","Northern","Eastern","Western","Central",
+              "Copper","Golden","Iron","Velvet","Ivory","Obsidian","Shadow","Silver","Bronze","Neon"]
+NOUN_WORDS = ["Rovers","Athletic","City","Hearts","Dynamos","Giants","Rangers","Wolves","Phoenix",
+              "Pilots","Falcons","Comets","United","Storm","Titans","Voyagers","Hawks","Harbor",
+              "Dragons","Foxes","Orbit","Galaxy","Kings","Queens","Sentinels","Nomads","Vikings","Jets"]
 
-        # ★ Italy を 2部構成に変更 ★
-        "Italy": {
-            "1部": ["Turin Bull","Milan Navigli","Rome Colosseum","Naples Vesuvio","Florence Arno",
-                    "Genoa Harbor","Bologna Portico","Verona Arena","Palermo Citrus","Cagliari Sardinia"],
-            "2部": ["Parma Duchy","Spezia Gulf","Bari Adriatic","Udine Friuli","Reggio Tricolor",
-                    "Perugia Griffin","Catania Etna","Brescia Leonessa","Pisa Tower","Lecce Salento"]
-        },
+def gen_club_name(used:set)->str:
+    # 無限ループ回避のため多少ランダムで試す
+    for _ in range(2000):
+        n = f"{random.choice(ADJ_WORDS)} {random.choice(NOUN_WORDS)}"
+        if n not in used:
+            used.add(n)
+            return n
+    # フォールバック
+    i=1
+    while True:
+        n=f"Club{i}"
+        if n not in used:
+            used.add(n); return n
+        i+=1
 
-        # 以下 1部のみ
-        "Brazil": {"1部": ["Rio Aurora","Sao Paulo Atlas","Bahia Mariners","Porto Alegre Gauchos","Recife Coral",
-                            "Curitiba Pines","Fortaleza Sun","Brasilia Federal","Manaus Jungle","Belo Horizonte Iron"]},
-        "Portugal": {"1部": ["Lisbon Tramway","Porto Douro","Braga Minho","Coimbra Mondego","Faro Algarve",
-                              "Funchal Madeira","Aveiro Lagoon","Setubal Sado","Guimaraes Castle","Evora Roman"]},
-        "Belgium": {"1部": ["Brussels Atom","Antwerp Diamond","Bruges Canal","Ghent Graven","Liege Steel",
-                            "Charleroi Coal","Leuven Beer","Mechelen Clock","Genk Mine","Kortrijk Textile"]},
-        "Turkey": {"1部": ["Istanbul Bosphorus","Ankara Anatolia","Izmir Aegean","Bursa Silk","Antalya Riviera",
-                           "Konya Plateau","Trabzon BlackSea","Kayseri Erciyes","Adana Citrus","Gaziantep Pistachio"]},
-        "Argentina": {"1部": ["Buenos Aires Tango","Cordoba Sierras","Rosario River","Mendoza Andes","La Plata Students",
-                               "Mar del Plata Surf","San Juan Sun","Tucuman Sugar","Salta Valley","Bahia Blanca Wind"]},
-        "Uruguay": {"1部": ["Montevideo Anchor","Colonia River","Rivera Border","Maldonado Coast","Salto Thermal",
-                             "Paysandu Mills","Tacuarembo Gaucho","Durazno Orange","Florida Meadow","Rocha Ocean"]},
-        "Colombia": {"1部": ["Bogota Andes","Medellin Coffee","Cali Sugarcane","Barranquilla Carnival","Cartagena Wall",
-                              "Bucaramanga Gold","Pereira Otun","Manizales Snow","Santa Marta Pearl","Cucuta Border"]},
-        "USA": {"1部": ["NY Empire","LA Coast","Chicago Wind","Houston Space","Miami Wave",
-                         "Seattle Rain","Boston Harbor","Dallas LoneStar","SF Bay","Philly Liberty"]},
-        "Mexico": {"1部": ["Mexico City Aztec","Guadalajara Pearl","Monterrey Steel","Puebla Volcano","Tijuana Border",
-                           "Leon Emerald","Toluca Nevado","Veracruz Gulf","Merida Maya","Cancun Coral"]},
-        "Saudi Arabia": {"1部": ["Riyadh Falcons","Jeddah RedSea","Dammam Oilers","Taif Roses","Medina Dates",
-                                 "Abha Asir","Tabuk Desert","Al Khobar Coast","Hail Caravan","Yanbu Harbor"]},
-        "Nigeria": {"1部": ["Lagos Lagoon","Abuja Unity","Kano Emir","Port Harcourt Oil","Ibadan Brown",
-                             "Enugu Coal","Kaduna Croc","Benin Bronze","Jos Plateau","Maiduguri Sahel"]},
-        "Morocco": {"1部": ["Casablanca Atlas","Rabat Oudaya","Marrakech Red","Fes Medina","Tangier Strait",
-                            "Agadir Ocean","Oujda Oriental","Meknes Imperial","Tetouan Rif","Safi Ceramic"]},
-        "South Korea": {"1部": ["Seoul Han","Busan Harbor","Incheon Sky","Daegu Apple","Daejeon Expo",
-                                "Gwangju Light","Ulsan Steel","Suwon Fortress","Jeonju Bibim","Jeju Islanders"]},
-        "Australia": {"1部": ["Sydney Harbour","Melbourne Laneway","Brisbane River","Perth Sand","Adelaide Wine",
-                               "Canberra Capital","Hobart Derwent","Darwin TopEnd","Gold Coast Surf","Newcastle Steel"]}
-    }
-
-    # 自クラブ名を1部のどこかと差し替え
-    flat = sum([sum(v.values(), []) for v in leagues.values()], [])
-    if my_club not in flat:
-        leagues["England"]["1部"][0] = my_club
+def build_leagues(my_club:str)->dict:
+    """
+    return: {nation:{'D1':[clubs], 'D2':[clubs] ...}}
+    ITAのみD2も作成。他はD1のみ。
+    """
+    leagues={}
+    used=set([my_club])
+    for nat in NATIONS:
+        if nat=="ITA":
+            leagues[nat]={"D1":[],"D2":[]}
+            for _ in range(8):
+                leagues[nat]["D1"].append(gen_club_name(used))
+            for _ in range(8):
+                leagues[nat]["D2"].append(gen_club_name(used))
+        else:
+            leagues[nat]={"D1":[]}
+            for _ in range(8):
+                leagues[nat]["D1"].append(gen_club_name(used))
+    # ENG のD1に必ず自クラブを入れる（なければ先頭に）
+    if "ENG" in leagues and "D1" in leagues["ENG"]:
+        if my_club not in leagues["ENG"]["D1"]:
+            leagues["ENG"]["D1"][0] = my_club
     return leagues
 
-# ----- スタンドings DataFrame 生成 -----
 def build_standings(leagues:dict)->pd.DataFrame:
     rows=[]
-    for nation, divs in leagues.items():
+    for nat, divs in leagues.items():
         for div, clubs in divs.items():
             for c in clubs:
-                rows.append({"Club":c,"Nation":nation,"Division":div,
+                rows.append({"Nation":nat,"Division":div,"Club":c,
                              "W":0,"D":0,"L":0,"GF":0,"GA":0,"Pts":0})
     return pd.DataFrame(rows)
 
-# ----- 選手生成 -----
-def gen_players(n:int, youth:bool, club:str, nation_code:str)->pd.DataFrame:
-    used = st.session_state.name_used
-    lst=[]
+def build_club_map(df_stand:pd.DataFrame)->dict:
+    # club -> (nation, division)
+    return {r['Club']:(r['Nation'],r['Division']) for _,r in df_stand.iterrows()}
+
+def sort_table(df):
+    df = df.copy()
+    if 'GD' not in df.columns and 'GF' in df.columns and 'GA' in df.columns:
+        df['GD'] = df['GF'] - df['GA']
+    return df.sort_values(['Pts','GD','GF'], ascending=[False,False,False]).reset_index(drop=True)
+
+# =========================
+# Part 4 / 12  --- Players / Offers / Scout / International / Init
+# =========================
+
+def gen_players(n:int, youth:bool, club:str, base_nat:str)->pd.DataFrame:
+    ses = st.session_state
+    used = ses.name_used
+    rows=[]
     for _ in range(n):
-        nat = nation_code if random.random()<0.5 else random.choice(NATIONS)
+        nat = base_nat if random.random()<0.5 else random.choice(NATIONS)
         name = gen_unique_name(nat, used)
-        pos = random.choices(["GK","DF","MF","FW"], weights=[1,4,5,3])[0]
+        pos  = random.choices(["GK","DF","MF","FW"], weights=[1,4,5,3])[0]
         base_min, base_max = (52,82) if youth else (60,90)
         stats = {k: random.randint(base_min, base_max) for k in ABILITY_KEYS}
         stats = apply_bias(stats, nat)
         ovr = int(np.mean(list(stats.values())))
+
         styles = random.sample(pick_style_pool(nat), k=random.randint(1,3))
         growth = random.choice(pick_growth_pool(nat))
-        lst.append({
+
+        rows.append({
             "Name":name,"Nat":nat,"Pos":pos,"Age":random.randint(15,18) if youth else random.randint(19,34),
-            **stats,"OVR":ovr,"Matches_Played":0,"Goals":0,"Assists":0,"IntCaps":0,
+            **stats,"OVR":ovr,"Matches_Played":0,"Goals":0,"Assists":0,"IntlApps":0,
             "Fatigue":0,"Injured":False,"Salary":random.randint(30_000,120_000) if youth else random.randint(120_000,1_200_000),
             "Contract":random.randint(1,2) if youth else random.randint(2,4),
-            "Youth":youth,"Club":club,"PlayStyle":styles,"GrowthType":growth,"Value":normalize_value(ovr*random.randint(3500,5500)//100),
-            "Status":"通常"
+            "Youth":youth,"Club":club,"PlayStyle":styles,"GrowthType":growth,
+            "Value":normalize_value(ovr*random.randint(3500,5500)//100),
+            "Status":"通常","RentalFrom":None,"RentalUntil":None,"OptionFee":None
         })
-    return pd.DataFrame(lst)
+    return pd.DataFrame(rows)
 
-# ----- セッション初期化 -----
-def init_session():
-    ses = st.session_state
-    if 'initialized' in ses: return
-    ses.initialized = True
-    ses.name_used = set()
-
-    ses.my_club = "Signature Team"
-    ses.leagues = build_leagues(ses.my_club)
-    ses.standings = build_standings(ses.leagues)
-
-    ses.senior = gen_players(30, False, ses.my_club, "ENG")
-    ses.youth  = gen_players(20, True,  ses.my_club, "ENG")
-
-    others = [c for c in ses.standings.Club if c!=ses.my_club]
-    pool_list=[]
-    for club in others:
-        nat_code = random.choice(NATIONS)
-        df = gen_players(15, False, club, nat_code)
-        pool_list.append(df)
-    ses.ai_players = pd.concat(pool_list, ignore_index=True)
-
-    ses.week = 1
-    ses.finance_log = []
-    ses.budget = 5_000_000
-    ses.player_history = {}
-    ses.auto_selected = False
-    ses.starters = []
-    ses.match_log = []
-    ses.scout_pool = pd.DataFrame()
-    ses.intl_tournament = {}
-    ses.rank_cache = {}
-    ses.need_positions = suggest_positions(ses.senior)
-
-init_session()
-
-# =========================
-# Part 4 / 10  --- 各種ユーティリティ関数群
-# =========================
-
-# ----- 整合性補正（IntCaps→IntlApps 等）-----
-def _fix_columns():
-    for dfname in ['senior','youth','ai_players']:
-        df = getattr(st.session_state, dfname)
-        if 'IntCaps' in df.columns and 'IntlApps' not in df.columns:
-            df.rename(columns={'IntCaps':'IntlApps'}, inplace=True)
-        if 'IntlApps' not in df.columns:
-            df['IntlApps'] = 0
-        setattr(st.session_state, dfname, df)
-
-_fix_columns()
-
-# ----- クラブ→(Nation,Division)辞書 -----
-def build_club_map(standings_df:pd.DataFrame)->dict:
-    mp={}
-    for _,r in standings_df.iterrows():
-        mp[r['Club']] = (r['Nation'], r['Division'])
-    return mp
-
-st.session_state.club_map = build_club_map(st.session_state.standings)
-
-# ----- 試合結果適用 -----
-def apply_result(st_df:pd.DataFrame, home, away, gh, ga):
-    # 勝敗・Pts
-    if gh>ga:
-        st_df.loc[st_df.Club==home, ['W','Pts']] += [1,3]
-        st_df.loc[st_df.Club==away, 'L'] += 1
-    elif gh<ga:
-        st_df.loc[st_df.Club==away, ['W','Pts']] += [1,3]
-        st_df.loc[st_df.Club==home, 'L'] += 1
-    else:
-        st_df.loc[st_df.Club.isin([home,away]), 'D'] += 1
-        st_df.loc[st_df.Club.isin([home,away]), 'Pts'] += 1
-    # 得失点
-    st_df.loc[st_df.Club==home, ['GF','GA']] += [gh, ga]
-    st_df.loc[st_df.Club==away, ['GF','GA']] += [ga, gh]
-    return st_df
-
-# ----- オファー判定 -----
-def offer_result(row, wage, years, fee, my_budget, policy):
+# ------ オファー判定 ------
+def offer_result(row, wage, years, fee, my_budget, policy="balanced"):
     want_wage = row['OVR']*120 + random.randint(-3000,3000)
     want_fee  = row['Value']
     coef = 0.8 if policy=='seller' else (1.2 if policy=='hold' else 1.0)
@@ -620,21 +490,23 @@ def offer_result(row, wage, years, fee, my_budget, policy):
     money_ok= my_budget >= fee
     return (wage_ok and fee_ok and club_ok and money_ok), want_wage, int(want_fee*coef)
 
-def rental_result(row, weeks, fee, my_budget, policy):
+# ------ レンタル判定 ------
+def rental_result(row, weeks, fee, my_budget, policy="balanced"):
     demand = int(row['Value']*0.15 + weeks*800)
     ok_fee = fee >= demand
     ok_club= random.random() < (0.65 if policy!='hold' else 0.4)
     return (ok_fee and ok_club and my_budget>=fee), demand
 
-# ----- レンタル期限チェック -----
+# ------ レンタル期限チェック ------
 def tick_rentals(df, week, pending_list):
     for i,r in df.iterrows():
-        if r.get('RentalUntil') is not None and week > r['RentalUntil'] and str(r.get('Status','')).startswith("レンタル中"):
-            pending_list.append(r['Name'])
-            df.at[i,'Status'] = "レンタル満了"
+        if r.get('RentalUntil'):
+            if week > r['RentalUntil'] and str(r.get('Status','')).startswith("レンタル中"):
+                pending_list.append(r['Name'])
+                df.at[i,'Status'] = "レンタル満了"
     return df, pending_list
 
-# ----- レンタル満了処理UI -----
+# ------ レンタル満了処理UI ------
 def handle_rental_expirations():
     ses = st.session_state
     if not ses.get('rental_pending'):
@@ -644,20 +516,21 @@ def handle_rental_expirations():
     for nm in ses.rental_pending[:]:
         row = all_df[all_df['Name']==nm]
         if row.empty:
-            ses.rental_pending.remove(nm)
-            continue
+            ses.rental_pending.remove(nm); continue
         r = row.iloc[0]
         st.write(f"**{r['Name']}** | Pos:{r['Pos']} | OVR:{r['OVR']} | 元:{r.get('RentalFrom')} | 買取OP:{fmt_money(r.get('OptionFee',0))}")
         c1,c2 = st.columns(2)
         with c1:
             if st.button(f"買取する（{fmt_money(r.get('OptionFee',0))}）", key=f"buy_{nm}"):
-                if ses.budget >= r.get('OptionFee',0):
-                    ses.budget -= r.get('OptionFee',0)
-                    for df in ['senior','youth']:
-                        idx = getattr(ses,df).index[getattr(ses,df)['Name']==nm]
+                if ses.budget >= (r.get('OptionFee') or 0):
+                    ses.budget -= (r.get('OptionFee') or 0)
+                    for dfname in ['senior','youth']:
+                        df = getattr(ses,dfname)
+                        idx = df.index[df['Name']==nm]
                         if len(idx)>0:
-                            getattr(ses,df).loc[idx, ['Club','RentalFrom','RentalUntil','OptionFee','Status']] = \
+                            df.loc[idx, ['Club','RentalFrom','RentalUntil','OptionFee','Status']] = \
                                 [ses.my_club, None, None, None, "通常"]
+                            setattr(ses,dfname,df)
                             break
                     st.success("買取成立！")
                     ses.rental_pending.remove(nm)
@@ -666,67 +539,67 @@ def handle_rental_expirations():
         with c2:
             if st.button("返却する", key=f"return_{nm}"):
                 origin = r.get('RentalFrom')
-                # 自クラブDFから削除
-                for df in ['senior','youth']:
-                    idx = getattr(ses,df).index[getattr(ses,df)['Name']==nm]
+                # 自クラブ側から削除
+                for dfname in ['senior','youth']:
+                    df = getattr(ses,dfname)
+                    idx = df.index[df['Name']==nm]
                     if len(idx)>0:
-                        bak = getattr(ses,df).loc[idx[0]].copy()
-                        getattr(ses,df).drop(idx, inplace=True)
+                        bak = df.loc[idx[0]].copy()
+                        df.drop(idx, inplace=True)
+                        setattr(ses,dfname,df)
                         break
-                # 元クラブへ戻す -> ai_playersへ
+                # 元クラブ(=AI)へ戻す
                 bak['Club']=origin
                 bak[['RentalFrom','RentalUntil','OptionFee','Status']] = [None,None,None,"通常"]
                 ses.ai_players = pd.concat([ses.ai_players, pd.DataFrame([bak])], ignore_index=True)
                 st.info("返却完了")
                 ses.rental_pending.remove(nm)
 
-# ----- スカウト候補生成 -----
+# ------ スカウト候補生成 ------
 def gen_scout_candidates(n=8, youth=False):
     ses = st.session_state
-    pool = pd.concat([ses.ai_players, ses.senior, ses.youth], ignore_index=True)
+    pool = ses.ai_players.copy()
     if youth:
         pool = pool[pool['Age']<=18]
     else:
         pool = pool[pool['Age']>=19]
 
-    # Free生成
-    free_df = gen_players(max(1,n//2), youth=youth, club="Free", nation_code=random.choice(NATIONS))
-    # 他クラブ
-    others = pool[(pool['Club']!="Free") & (pool['Club']!=ses.my_club)]
+    free_df = gen_players(max(1,n//2), youth=youth, club="Free", base_nat=random.choice(NATIONS))
     take = n - len(free_df)
+    others = pool[pool['Club']!=ses.my_club]
     pick_df = others.sample(min(take, len(others))) if len(others)>0 else pd.DataFrame()
-    cands = pd.concat([free_df, pick_df], ignore_index=True)
 
-    # 表示用加工
-    cands['PlayStyle'] = cands['PlayStyle'].apply(lambda x: " / ".join(x))
+    cands = pd.concat([free_df, pick_df], ignore_index=True)
+    cands['PlayStyle'] = cands['PlayStyle'].apply(lambda x: " / ".join(x) if isinstance(x,list) else x)
     cands['Value'] = cands['Value'].apply(normalize_value)
     return cands.sample(frac=1).reset_index(drop=True)
 
 def get_rental_candidates():
     ses = st.session_state
     pool = ses.ai_players
-    return pool[(pool['Club']!=ses.my_club) & (pool.get('RentalFrom').isna() if 'RentalFrom'in pool else True)]
+    return pool[(pool['Club']!=ses.my_club) & (pool['RentalFrom'].isna())]
 
-# ----- 国際大会自動進行 -----
+# ------ 国際大会自動進行 ------
 def auto_intl_round():
     ses = st.session_state
     if 'intl_tournament' not in ses or not ses.intl_tournament:
-        # 各国1部上位2クラブ
+        # 各国D1上位2クラブ
         clubs=[]
-        for nation, divs in ses.leagues.items():
-            if "1部" in divs:
-                table = ses.standings[(ses.standings.Nation==nation) & (ses.standings.Division=="1部")]
-                top2 = table.sort_values('Pts', ascending=False).head(2)['Club'].tolist()
+        for nat, divs in ses.leagues.items():
+            if "D1" in divs:
+                tmp = ses.standings[(ses.standings.Nation==nat)&(ses.standings.Division=="D1")]
+                top2 = tmp.sort_values('Pts', ascending=False).head(2)['Club'].tolist()
                 clubs.extend(top2)
         random.shuffle(clubs)
         ses.intl_tournament = {"clubs":clubs, "results":[], "finished":False}
         return
 
-    if ses.intl_tournament.get("finished"):  # 終了
+    if ses.intl_tournament.get("finished"):
         return
+
     clubs = ses.intl_tournament['clubs']
-    if len(clubs)<=1:
-        ses.intl_tournament["finished"]=True
+    if len(clubs) <= 1:
+        ses.intl_tournament['finished'] = True
         return
 
     winners=[]
@@ -747,57 +620,137 @@ def auto_intl_round():
         ses.sns_posts.append(f"[国際大会] {c1} {g1}-{g2} {c2} {pk_txt} → 勝者:{win}")
         ses.sns_times.append(datetime.now())
 
-        # 個人成績（簡易：勝者側の上位11人にランダム配点）
+        # 個人成績（簡易）
         pool_all = pd.concat([ses.senior, ses.youth, ses.ai_players], ignore_index=True)
         XI1 = pool_all[pool_all['Club']==c1].nlargest(11,'OVR')
         XI2 = pool_all[pool_all['Club']==c2].nlargest(11,'OVR')
 
-        if 'intl_player_stats' not in ses:
-            ses.intl_player_stats={}
-        # ゴール・アシスト割り振り
+        ses.intl_player_stats = ses.intl_player_stats or {}
         for club, goals in [(c1,g1),(c2,g2)]:
             XI = XI1 if club==c1 else XI2
-            if XI.empty: 
-                continue
+            if XI.empty: continue
             for _ in range(goals):
                 pid = XI.sample(1).index[0]
-                name = XI.loc[pid,'Name']
-                pos  = XI.loc[pid,'Pos']
-                ses.intl_player_stats.setdefault(name, {'G':0,'A':0,'Club':club,'Pos':pos})
-                ses.intl_player_stats[name]['G'] += 1
-                # assist
-                pid2 = XI.sample(1).index[0]
-                name2 = XI.loc[pid2,'Name']
-                pos2  = XI.loc[pid2,'Pos']
-                ses.intl_player_stats.setdefault(name2, {'G':0,'A':0,'Club':club,'Pos':pos2})
-                ses.intl_player_stats[name2]['A'] += 1
+                n1  = XI.loc[pid,'Name']; p1 = XI.loc[pid,'Pos']
+                ses.intl_player_stats.setdefault(n1, {'G':0,'A':0,'Club':club,'Pos':p1})
+                ses.intl_player_stats[n1]['G'] += 1
 
-        # 自クラブ選手の国際試合数増やす
+                pid2 = XI.sample(1).index[0]
+                n2  = XI.loc[pid2,'Name']; p2 = XI.loc[pid2,'Pos']
+                ses.intl_player_stats.setdefault(n2, {'G':0,'A':0,'Club':club,'Pos':p2})
+                ses.intl_player_stats[n2]['A'] += 1
+
+        # 自クラブ選手の国際出場数
         if c1==ses.my_club or c2==ses.my_club:
             starters_names = ses.starters if ses.starters else ses.senior.nlargest(11,'OVR')['Name'].tolist()
             for nm in starters_names:
-                for dfn in ['senior','youth']:
-                    idx = getattr(ses,dfn).index[getattr(ses,dfn)['Name']==nm]
+                for dfname in ['senior','youth']:
+                    df = getattr(ses,dfname)
+                    idx = df.index[df['Name']==nm]
                     if len(idx)>0:
-                        getattr(ses,dfn).at[idx[0],'IntlApps'] = getattr(ses,dfn).at[idx[0],'IntlApps'] + 1
+                        df.at[idx[0],'IntlApps'] += 1
+                        setattr(ses,dfname,df)
 
         winners.append(win)
     if len(clubs)%2==1:
         winners.append(clubs[-1])
+
     ses.intl_tournament['clubs']=winners
     if len(winners)==1:
         ses.intl_tournament['finished']=True
         ses.sns_posts.append(f"[国際大会] 優勝: {winners[0]}")
         ses.sns_times.append(datetime.now())
 
-# =========================
-# Part 5 / 10  --- タブ定義 / シニア / ユース / 選手詳細
-# =========================
+# ------ 初期化 ------
+def init_session():
+    ses = st.session_state
+    if ses.get('initialized'): return
+    ses.initialized = True
 
+    ses.name_used = set()
+    ses.my_club   = "Signature Team"
+
+    ses.leagues   = build_leagues(ses.my_club)
+    ses.standings = build_standings(ses.leagues)
+    ses.club_map  = build_club_map(ses.standings)
+
+    ses.senior = gen_players(30, False, ses.my_club, "ENG")
+    ses.youth  = gen_players(20, True,  ses.my_club, "ENG")
+
+    # AIクラブ選手
+    pool=[]
+    for c in ses.standings.Club:
+        if c==ses.my_club: continue
+        nat = random.choice(NATIONS)
+        pool.append(gen_players(15, False, c, nat))
+    ses.ai_players = pd.concat(pool, ignore_index=True)
+
+    ses.week = 1
+    ses.budget = 5_000_000
+    ses.finance_log = []
+    ses.player_history = {}
+    ses.auto_selected = False
+    ses.starters = []
+    ses.match_log = []
+    ses.scout_pool = pd.DataFrame()
+    ses.intl_tournament = {}
+    ses.intl_player_stats = {}
+    ses.sns_posts = []
+    ses.sns_times = []
+    ses.rental_pending = []
+    ses.need_positions = suggest_positions(ses.senior)
+
+init_session()
+
+# =========================
+# Part 5 / 12  --- ハウスキーピング / 共通試合処理
+# =========================
 ses = st.session_state
-if 'rental_pending' not in ses: ses.rental_pending = []
 
-# ---------- タブ定義 ----------
+def update_standings_global(home, away, gh, ga):
+    df = ses.standings
+    if gh > ga:
+        df.loc[df.Club==home, ['W','Pts']] += [1,3]
+        df.loc[df.Club==away, 'L'] += 1
+    elif gh < ga:
+        df.loc[df.Club==away, ['W','Pts']] += [1,3]
+        df.loc[df.Club==home, 'L'] += 1
+    else:
+        df.loc[df.Club.isin([home,away]), 'D']   += 1
+        df.loc[df.Club.isin([home,away]), 'Pts'] += 1
+    df.loc[df.Club==home, ['GF','GA']] += [gh, ga]
+    df.loc[df.Club==away, ['GF','GA']] += [ga, gh]
+    ses.standings = df
+
+def housekeeping():
+    # 欠損初期化
+    for att, init_val in [
+        ('sns_posts', []), ('sns_times', []),
+        ('intl_player_stats', {}), ('rental_pending', []),
+        ('scout_pool', pd.DataFrame())
+    ]:
+        if att not in ses: setattr(ses, att, init_val)
+
+    # レンタル期限チェック
+    pending=[]
+    ses.senior, pending = tick_rentals(ses.senior, ses.week, pending)
+    ses.youth,  pending = tick_rentals(ses.youth,  ses.week, pending)
+    if pending:
+        ses.rental_pending = list(set(ses.rental_pending + pending))
+
+    # 順位表整列 & マップ更新
+    ses.standings = sort_table(ses.standings)
+    ses.club_map  = build_club_map(ses.standings)
+
+    # 補強推奨更新
+    ses.need_positions = suggest_positions(ses.senior)
+
+housekeeping()
+
+# =========================
+# Part 6 / 12  --- Tabs / Senior / Youth / Detail
+# =========================
+
 tabs = st.tabs([
     "シニア","ユース","選手詳細","試合","順位表",
     "スカウト/移籍","レンタル管理","SNS","財務レポート",
@@ -816,14 +769,11 @@ with tabs[0]:
     df_s['PlayStyle'] = df_s['PlayStyle'].apply(lambda x: " / ".join(x) if isinstance(x,list) else x)
     df_s = sort_by_pos(df_s, reverse=reverse_flag)
 
-    if df_s.empty:
-        st.markdown("<div class='tab-info'>選手データがありません。</div>", unsafe_allow_html=True)
-    else:
-        st.dataframe(
-            df_s.style.apply(make_highlighter('Club', ses.my_club), axis=1)
-                      .set_properties(**{"background-color":"rgba(32,44,70,0.85)","color":"#fff"}),
-            use_container_width=True
-        )
+    st.dataframe(
+        df_s.style.apply(make_highlighter('Club', ses.my_club), axis=1)
+                  .set_properties(**{"background-color":"rgba(32,44,70,0.85)","color":"#fff"}),
+        use_container_width=True
+    )
 
 # ---------- 1) ユース ----------
 with tabs[1]:
@@ -836,14 +786,11 @@ with tabs[1]:
     df_y['PlayStyle'] = df_y['PlayStyle'].apply(lambda x: " / ".join(x) if isinstance(x,list) else x)
     df_y = sort_by_pos(df_y, reverse=reverse_flag_y)
 
-    if df_y.empty:
-        st.markdown("<div class='tab-info'>ユース選手がいません。</div>", unsafe_allow_html=True)
-    else:
-        st.dataframe(
-            df_y.style.apply(make_highlighter('Club', ses.my_club), axis=1)
-                      .set_properties(**{"background-color":"rgba(32,44,70,0.85)","color":"#fff"}),
-            use_container_width=True
-        )
+    st.dataframe(
+        df_y.style.apply(make_highlighter('Club', ses.my_club), axis=1)
+                  .set_properties(**{"background-color":"rgba(32,44,70,0.85)","color":"#fff"}),
+        use_container_width=True
+    )
 
 # ---------- 2) 選手詳細 ----------
 with tabs[2]:
@@ -859,12 +806,10 @@ with tabs[2]:
         st.write(f"所属: {prow['Club']} / 状態: {prow.get('Status','')}")
         st.write("プレースタイル: " + (", ".join(prow['PlayStyle']) if isinstance(prow['PlayStyle'],list) else prow['PlayStyle']))
 
-        # レーダーチャート
         vals = [prow[k] for k in ABILITY_KEYS]
         fig_r = radar_chart(vals, ABILITY_KEYS)
         st.pyplot(fig_r)
 
-        # 成長履歴
         hist = pd.DataFrame(ses.player_history.get(
             sel_name, [{'week':0,'OVR':prow['OVR'], **{k:prow[k] for k in ABILITY_KEYS}}]
         ))
@@ -884,32 +829,14 @@ with tabs[2]:
         else:
             st.markdown("<div class='tab-info'>成長データはまだありません。</div>", unsafe_allow_html=True)
 
+      # =========================
+# Part 7 / 12  --- 試合 / 順位表
 # =========================
-# Part 6 / 10  --- 試合 / 順位表
-# =========================
-
-def update_standings_global(home, away, gh, ga):
-    df = ses.standings
-    # 勝敗
-    if gh > ga:
-        df.loc[df.Club==home, ['W','Pts']] += [1,3]
-        df.loc[df.Club==away, 'L'] += 1
-    elif gh < ga:
-        df.loc[df.Club==away, ['W','Pts']] += [1,3]
-        df.loc[df.Club==home, 'L'] += 1
-    else:
-        df.loc[df.Club.isin([home,away]), 'D'] += 1
-        df.loc[df.Club.isin([home,away]), 'Pts'] += 1
-    # 得失点
-    df.loc[df.Club==home, ['GF','GA']] += [gh, ga]
-    df.loc[df.Club==away, ['GF','GA']] += [ga, gh]
-    ses.standings = df
 
 with tabs[3]:
     st.markdown(f"<div style='color:#fff;font-size:20px;'>第{ses.week}節 試合シミュレーション</div>", unsafe_allow_html=True)
 
     formation = st.selectbox("フォーメーション", ["4-4-2","4-3-3","3-5-2"])
-
     if st.button("オート先発選考"):
         req = {
             "4-4-2":("FW",2,"MF",4,"DF",4,"GK",1),
@@ -934,9 +861,9 @@ with tabs[3]:
             use_container_width=True
         )
     else:
-        st.warning("『オート先発選考』を行ってください。")
+        st.warning("『オート先発選考』を行わないと試合開始できません。")
 
-    # 自クラブの所属リーグからランダムな相手選出
+    # 自クラブの同リーグから対戦相手を自動選択
     my_nat, my_div = ses.club_map[ses.my_club]
     same_league = ses.standings[(ses.standings.Nation==my_nat)&(ses.standings.Division==my_div)]
     opp_choices = [c for c in same_league.Club if c!=ses.my_club]
@@ -944,48 +871,44 @@ with tabs[3]:
 
     kickoff = st.button("キックオフ", disabled=(not ses.auto_selected or ses.week>SEASON_WEEKS))
     if kickoff:
-        # 自チーム攻撃力
         atk = ses.senior[ses.senior['Name'].isin(ses.starters)]['OVR'].mean() if ses.starters else 70
         oppatk = random.uniform(60,90)
-
         gh = max(0,int(np.random.normal((atk-60)/8,1)))
         ga = max(0,int(np.random.normal((oppatk-60)/8,1)))
-
         shots = random.randint(5,15)
         on_t  = random.randint(0,shots)
         poss  = random.randint(40,60)
 
-        # ゴール/アシスト記録
+        # ゴール/アシスト
         scorers=[]; assisters=[]
         if gh>0 and ses.starters:
             for _ in range(gh):
                 s = random.choice(ses.starters)
-                a_candidates = [x for x in ses.starters if x!=s]
-                a = random.choice(a_candidates) if a_candidates else s
+                candidates = [x for x in ses.starters if x!=s]
+                a = random.choice(candidates) if candidates else s
                 scorers.append(s); assisters.append(a)
                 ses.senior.loc[ses.senior['Name']==s,'Goals']   += 1
                 ses.senior.loc[ses.senior['Name']==a,'Assists'] += 1
 
-        # スタンディング更新
         update_standings_global(ses.my_club, opp, gh, ga)
 
-        # 他試合
-        all_pairs_done={(ses.my_club,opp)}
-        for nation, divs in ses.leagues.items():
+        # 他クラブ試合
+        done_pairs={(ses.my_club,opp)}
+        for nat, divs in ses.leagues.items():
             for div, clubs in divs.items():
-                cl = clubs.copy()
+                cl = clubs[:]
                 random.shuffle(cl)
                 for i in range(0,len(cl),2):
                     if i+1>=len(cl): break
                     h,a = cl[i], cl[i+1]
-                    if (h,a) in all_pairs_done or (a,h) in all_pairs_done: continue
+                    if (h,a) in done_pairs or (a,h) in done_pairs: continue
                     g1,g2 = random.randint(0,3), random.randint(0,3)
                     update_standings_global(h,a,g1,g2)
-                    all_pairs_done.add((h,a))
+                    done_pairs.add((h,a))
 
-        # ログ・SNS・財務
+        # ログ類
         ses.match_log.append({'week':ses.week,'opp':opp,'gf':gh,'ga':ga,'scorers':scorers,'assisters':assisters})
-        ses.sns_posts.append(f"{ses.my_club} {gh}-{ga} {opp} | 得点: {', '.join(scorers) if scorers else 'なし'}")
+        ses.sns_posts.append(f"{ses.my_club} {gh}-{ga} {opp}｜得点:{', '.join(scorers) if scorers else 'なし'} / アシスト:{', '.join(assisters) if assisters else 'なし'}")
         ses.sns_times.append(datetime.now())
         ses.finance_log.append({
             'week': ses.week,
@@ -994,7 +917,7 @@ with tabs[3]:
             'expense_salary': int(ses.senior['OVR'].mean()*1000)
         })
 
-        # 成長
+        # 成長反映
         ses.senior = apply_growth(ses.senior, ses.week)
         for _,rw in ses.senior.iterrows():
             update_player_history(rw['Name'], rw, ses.week)
@@ -1005,14 +928,14 @@ with tabs[3]:
         st.write(f"シュート:{shots}（枠内:{on_t}） / ポゼッション:{poss}%")
 
         ses.week += 1
-        ses.auto_selected = False  # 次節も選考必須
+        ses.auto_selected = False
         auto_intl_round()
 
         if ses.week > SEASON_WEEKS:
             st.success("シーズン終了！『年間表彰』タブ等をご確認ください。")
 
     elif ses.week > SEASON_WEEKS:
-        st.info("シーズン終了済です。『クラブ設定』で新シーズン開始など調整してください。")
+        st.info("シーズン終了済です。『クラブ設定』で新シーズン開始できます。")
 
 # ---------- 4) 順位表 ----------
 with tabs[4]:
@@ -1020,27 +943,178 @@ with tabs[4]:
     nations = list(ses.leagues.keys())
     sel_nat = st.selectbox("国を選択", nations)
     sel_div = st.selectbox("ディビジョンを選択", list(ses.leagues[sel_nat].keys()))
-    df_st = ses.standings[(ses.standings.Nation==sel_nat)&(ses.standings.Division==sel_div)].copy()
-    df_st = df_st.sort_values(['Pts','GF-GA','GF'], ascending=[False,False,False]).reset_index(drop=True)
+    df_st = ses.standings[(ses.standings.Nation==sel_nat)&(ses.standings.Division==sel_div)]
+    df_st = sort_table(df_st)
     st.dataframe(
         df_st.style.apply(make_highlighter('Club', ses.my_club), axis=1)
-            .set_properties(**{"background-color":"rgba(32,44,70,0.85)","color":"#fff"}),
+                   .set_properties(**{"background-color":"rgba(32,44,70,0.85)","color":"#fff"}),
         use_container_width=True
     )
+
 # =========================
-# Part 8 / 10  --- 年間表彰 / ランキング&国際大会 / クラブ設定
+# Part 8 / 12  --- スカウト / 移籍
+# =========================
+
+with tabs[5]:
+    st.markdown("<div style='color:#fff;font-size:20px;'>スカウト / 移籍 / 補強</div>", unsafe_allow_html=True)
+
+    cat = st.radio("対象カテゴリー", ["シニア候補","ユース候補"], horizontal=True, key="scout_cat")
+    youth_flag = (cat == "ユース候補")
+
+    # 補強推奨
+    base_df = ses.youth if youth_flag else ses.senior
+    ses.need_positions = suggest_positions(base_df)
+    st.markdown(f"**補強推奨ポジション:** {', '.join(ses.need_positions)}")
+
+    c1, c2 = st.columns(2)
+    with c1:
+        if st.button("候補リスト更新", key="refresh_scout"):
+            ses.scout_pool = gen_scout_candidates(n=8, youth=youth_flag)
+    with c2:
+        st.write(f"予算：{fmt_money(ses.budget)}")
+
+    if ses.scout_pool is None or ses.scout_pool.empty:
+        st.markdown("<div class='tab-info'>候補がいません。『候補リスト更新』を押してください。</div>", unsafe_allow_html=True)
+    else:
+        for i, row in ses.scout_pool.iterrows():
+            st.markdown("<div class='scout-card'>", unsafe_allow_html=True)
+            st.markdown(
+                f"**{row['Name']}**｜{row['Nat']}｜{row['Age']}歳｜{row['Pos']}｜OVR:{row['OVR']}<br>"
+                f"PlayStyle: {row['PlayStyle']}<br>"
+                f"所属:{row['Club']}｜評価額:{fmt_money(row['Value'])}",
+                unsafe_allow_html=True
+            )
+
+            if row['Club'] == "Free":
+                if st.button("契約", key=f"sign_free_{i}"):
+                    dst = 'youth' if youth_flag else 'senior'
+                    setattr(ses, dst, pd.concat([getattr(ses,dst), pd.DataFrame([row])], ignore_index=True))
+                    ses.scout_pool = ses.scout_pool.drop(i).reset_index(drop=True)
+                    st.success("獲得しました！")
+            else:
+                mode = st.selectbox(f"オファー種別（{row['Name']}）", ["完全移籍","レンタル(買取OP付)"], key=f"offer_mode_{i}")
+                policy = "balanced"
+
+                with st.form(f"offer_form_{i}"):
+                    if mode == "完全移籍":
+                        wage  = st.number_input("提示年俸(€)", min_value=0, value=row['OVR']*150, key=f"wage_{i}")
+                        years = st.slider("契約年数", 1, 5, 3, key=f"years_{i}")
+                        fee   = st.number_input("移籍金(€)", min_value=0, value=int(row['Value']), key=f"fee_{i}")
+                        submit_full = st.form_submit_button("送信")
+                        if submit_full:
+                            ok, want_wage, want_fee = offer_result(row, wage, years, fee, ses.budget, policy)
+                            if ok:
+                                ses.budget -= fee
+                                row2 = row.copy()
+                                row2['Club'] = ses.my_club
+                                dst = 'youth' if youth_flag else 'senior'
+                                setattr(ses, dst, pd.concat([getattr(ses,dst), pd.DataFrame([row2])], ignore_index=True))
+                                ses.ai_players = ses.ai_players[ses.ai_players['Name']!=row['Name']]
+                                ses.scout_pool = ses.scout_pool.drop(i).reset_index(drop=True)
+                                st.success("移籍成立！")
+                            else:
+                                st.error(f"拒否：要求目安 年俸{want_wage}€, 移籍金{want_fee}€")
+                    else:
+                        weeks = st.slider("レンタル期間（節）", 1, 8, 4, key=f"weeks_{i}")
+                        fee_r = st.number_input("レンタル料(€)", min_value=0, value=int(row['Value']*0.15), key=f"rentfee_{i}")
+                        opt   = st.number_input("買取オプション額(€)", min_value=0, value=int(row['Value']*1.2), key=f"optfee_{i}")
+                        submit_rent = st.form_submit_button("送信")
+                        if submit_rent:
+                            ok, demand = rental_result(row, weeks, fee_r, ses.budget, policy)
+                            if ok:
+                                ses.budget -= fee_r
+                                row2 = row.copy()
+                                row2['Club']        = ses.my_club
+                                row2['RentalFrom']  = row['Club']
+                                row2['RentalUntil'] = ses.week + weeks
+                                row2['OptionFee']   = opt
+                                row2['Status']      = f"レンタル中({weeks}節)"
+                                dst = 'youth' if youth_flag else 'senior'
+                                setattr(ses, dst, pd.concat([getattr(ses,dst), pd.DataFrame([row2])], ignore_index=True))
+                                ses.ai_players = ses.ai_players[ses.ai_players['Name']!=row['Name']]
+                                ses.scout_pool = ses.scout_pool.drop(i).reset_index(drop=True)
+                                st.success("レンタル成立！")
+                            else:
+                                st.error(f"拒否：要求額目安 {fmt_money(demand)}")
+            st.markdown("</div>", unsafe_allow_html=True)
+            st.markdown("---")
+
+      # =========================
+# Part 9 / 12  --- レンタル管理 / SNS
+# =========================
+
+# -------- 6) レンタル管理 --------
+with tabs[6]:
+    st.markdown("<div style='color:#fff;font-size:20px;'>レンタル管理</div>", unsafe_allow_html=True)
+    handle_rental_expirations()
+
+    df_r = pd.concat([ses.senior, ses.youth], ignore_index=True)
+    df_r = df_r[df_r['Status'].str.startswith("レンタル中", na=False)][
+        ['Name','Pos','OVR','RentalFrom','RentalUntil','OptionFee','Status']
+    ]
+    if df_r.empty:
+        st.markdown("<div class='tab-info'>レンタル中の選手はいません。</div>", unsafe_allow_html=True)
+    else:
+        st.dataframe(
+            df_r.style.set_properties(**{"background-color":"rgba(32,44,70,0.85)","color":"#fff"}),
+            use_container_width=True
+        )
+
+# -------- 7) SNS --------
+with tabs[7]:
+    st.markdown("<div style='color:#fff;font-size:20px;'>SNS / ファン投稿</div>", unsafe_allow_html=True)
+    if ses.sns_posts:
+        for t, p in zip(reversed(ses.sns_times), reversed(ses.sns_posts)):
+            st.write(f"{t.strftime('%m/%d %H:%M')} - {p}")
+    else:
+        st.markdown("<div class='tab-info'>投稿はまだありません。</div>", unsafe_allow_html=True)
+
+  # =========================
+# Part 10 / 12  --- 財務レポート
+# =========================
+
+with tabs[8]:
+    st.markdown("<div style='color:#fff;font-size:20px;'>財務レポート</div>", unsafe_allow_html=True)
+
+    df_fin = pd.DataFrame(ses.finance_log)
+    if df_fin.empty:
+        st.markdown("<div class='tab-info'>まだ試合がないため財務データがありません。</div>", unsafe_allow_html=True)
+    else:
+        df_fin_j = df_fin.rename(columns={
+            'week':'節','revenue_ticket':'チケット収入','revenue_goods':'グッズ収入','expense_salary':'人件費'
+        })
+        df_fin_j['総収入'] = df_fin_j['チケット収入'] + df_fin_j['グッズ収入']
+        df_fin_j['収支']   = df_fin_j['総収入'] - df_fin_j['人件費']
+
+        fig, ax = plt.subplots()
+        ax.plot(df_fin_j['節'], df_fin_j['総収入'], marker='o', label='総収入')
+        ax.plot(df_fin_j['節'], df_fin_j['人件費'], marker='o', label='人件費')
+        ax.plot(df_fin_j['節'], df_fin_j['収支'],   marker='o', label='収支')
+        ax.set_xlabel("節"); ax.set_ylabel("金額(€)")
+        ax.set_title("財務推移")
+        ax.legend()
+        make_transparent(ax)
+        st.pyplot(fig)
+
+        st.dataframe(
+            df_fin_j.style.set_properties(**{"background-color":"rgba(32,44,70,0.85)","color":"#fff"}),
+            use_container_width=True
+        )
+
+  # =========================
+# Part 11 / 12  --- 年間表彰 / ランキング & 国際大会
 # =========================
 
 # -------- 9) 年間表彰 --------
 with tabs[9]:
     st.markdown('<div style="color:white;font-size:20px;">年間表彰</div>', unsafe_allow_html=True)
 
-    df_all_my = pd.concat([ses.senior, ses.youth], ignore_index=True)
+    df_my = pd.concat([ses.senior, ses.youth], ignore_index=True)
     for col in ['Goals','Assists']:
-        if col not in df_all_my: df_all_my[col]=0
+        if col not in df_my: df_my[col]=0
 
-    top5g = df_all_my.nlargest(5,'Goals')[['Name','Pos','Goals','Club']]
-    top5a = df_all_my.nlargest(5,'Assists')[['Name','Pos','Assists','Club']]
+    top5g = df_my.nlargest(5,'Goals')[['Name','Pos','Goals','Club']]
+    top5a = df_my.nlargest(5,'Assists')[['Name','Pos','Assists','Club']]
 
     st.markdown('<span style="color:white;font-weight:bold;">🏅 自クラブ 得点王 TOP5</span>', unsafe_allow_html=True)
     if top5g.empty:
@@ -1048,7 +1122,7 @@ with tabs[9]:
     else:
         st.dataframe(
             top5g.style.apply(make_highlighter('Club', ses.my_club), axis=1)
-                       .set_properties(**{"background-color":"rgba(32,44,70,0.85)","color":"#fff"}),
+                      .set_properties(**{"background-color":"rgba(32,44,70,0.85)","color":"#fff"}),
             use_container_width=True
         )
 
@@ -1058,7 +1132,7 @@ with tabs[9]:
     else:
         st.dataframe(
             top5a.style.apply(make_highlighter('Club', ses.my_club), axis=1)
-                       .set_properties(**{"background-color":"rgba(32,44,70,0.85)","color":"#fff"}),
+                      .set_properties(**{"background-color":"rgba(32,44,70,0.85)","color":"#fff"}),
             use_container_width=True
         )
 
@@ -1066,14 +1140,13 @@ with tabs[9]:
 with tabs[10]:
     st.markdown('<div style="color:white;font-size:22px;font-weight:bold;">ランキング / 国際大会まとめ</div>', unsafe_allow_html=True)
 
-    # --- 国際大会試合ログ ---
+    # 国際大会ログ
     st.markdown("### 🌍 国際大会 試合ログ")
     if not ses.intl_tournament or len(ses.intl_tournament.get('results',[]))==0:
         st.markdown("<div class='tab-info'>国際大会は未開催です。試合を進めると自動で進行します。</div>", unsafe_allow_html=True)
     else:
-        for idx,m in enumerate(ses.intl_tournament['results']):
-            # m = (c1,g1,c2,g2,pk_txt,win)
-            line = f"【R{idx+1}】 {m[0]} {m[1]}-{m[3]} {m[2]} {m[4]} → 勝者:{m[5]}"
+        for i,m in enumerate(ses.intl_tournament['results'],1):
+            line = f"【R{i}】 {m[0]} {m[1]}-{m[3]} {m[2]} {m[4]} → 勝者:{m[5]}"
             if ses.my_club in line:
                 st.markdown(f"<span style='background:#f7df70;color:#202b41;font-weight:bold'>{line}</span>", unsafe_allow_html=True)
             else:
@@ -1088,17 +1161,15 @@ with tabs[10]:
 
     st.markdown("---")
 
-    # --- 国際大会 個人成績 ---
+    # 国際大会個人成績
     st.markdown("### 🏆 国際大会 個人成績ランキング")
     if not ses.get('intl_player_stats'):
         st.markdown("<div class='tab-info'>国際大会の個人成績データがまだありません。</div>", unsafe_allow_html=True)
     else:
         df_intp = pd.DataFrame.from_dict(ses.intl_player_stats, orient='index')
-        # ensure columns
         for c in ['G','A','Club','Pos','Name']:
-            if c not in df_intp.columns:
-                df_intp[c]=0
-        df_intp['Name'] = df_intp.index
+            if c not in df_intp.columns: df_intp[c]=0
+        df_intp['Name']=df_intp.index
 
         top_g = df_intp.sort_values('G', ascending=False).head(10)[['Name','Pos','G','A','Club']]
         st.markdown("**得点ランキング TOP10**")
@@ -1122,7 +1193,7 @@ with tabs[10]:
             cand['Score'] = cand['G']*2 + cand['A']
             best11.append(cand.sort_values('Score', ascending=False).head(need)[['Name','Pos','G','A','Club']])
         best11 = pd.concat(best11)
-        st.markdown("**⚽️ 国際大会ベストイレブン（ポジション別成績上位）**")
+        st.markdown("**⚽️ 国際大会ベストイレブン**")
         st.dataframe(
             best11.style.apply(make_highlighter('Club', ses.my_club), axis=1)
                         .set_properties(**{"background-color":"rgba(32,44,70,0.85)","color":"#fff"}),
@@ -1131,29 +1202,27 @@ with tabs[10]:
 
     st.markdown("---")
 
-    # --- 各国リーグランキングまとめ ---
+    # 各国リーグまとめ
     st.markdown("### 🇪🇺 各国リーグランキング（順位表・得点王・アシスト王・ベスト11）")
     df_all = pd.concat([ses.senior, ses.youth, ses.ai_players], ignore_index=True)
     for col in ['Goals','Assists']:
         if col not in df_all: df_all[col]=0
-    df_all['Nation'] = df_all['Club'].map(lambda c: ses.club_map.get(c,("",""))[0] if c in ses.club_map else "")
+    df_all['Nation']   = df_all['Club'].map(lambda c: ses.club_map.get(c,("",""))[0] if c in ses.club_map else "")
     df_all['Division'] = df_all['Club'].map(lambda c: ses.club_map.get(c,("",""))[1] if c in ses.club_map else "")
 
-    for nation, divs in ses.leagues.items():
-        st.markdown(f"## {nation}")
+    for nat, divs in ses.leagues.items():
+        st.markdown(f"## {nat}")
         for div in divs.keys():
             st.markdown(f"#### {div} 順位表")
-            df_st = ses.standings[(ses.standings.Nation==nation)&(ses.standings.Division==div)].copy()
-            # GD列
-            df_st['GD'] = df_st['GF']-df_st['GA']
-            df_st = df_st.sort_values(['Pts','GD','GF'], ascending=[False,False,False]).reset_index(drop=True)
+            df_st = ses.standings[(ses.standings.Nation==nat)&(ses.standings.Division==div)].copy()
+            df_st = sort_table(df_st)
             st.dataframe(
                 df_st.style.apply(make_highlighter('Club', ses.my_club), axis=1)
-                    .set_properties(**{"background-color":"rgba(32,44,70,0.85)","color":"#fff"}),
+                           .set_properties(**{"background-color":"rgba(32,44,70,0.85)","color":"#fff"}),
                 use_container_width=True
             )
 
-            sub = df_all[(df_all['Nation']==nation) & (df_all['Division']==div)].copy()
+            sub = df_all[(df_all['Nation']==nat)&(df_all['Division']==div)].copy()
             if sub.empty:
                 st.markdown("<div class='tab-info'>選手データなし</div>", unsafe_allow_html=True)
                 st.markdown("---")
@@ -1177,8 +1246,7 @@ with tabs[10]:
             )
 
             best11=[]
-            for p in ['GK','DF','MF','FW']:
-                need = 1 if p=='GK' else (4 if p in ['DF','MF'] else 2)
+            for p,need in [('GK',1),('DF',4),('MF',4),('FW',2)]:
                 cand = sub[sub['Pos']==p].nlargest(need,'OVR')[['Name','Pos','OVR','Club']]
                 best11.append(cand)
             best11 = pd.concat(best11)
@@ -1190,79 +1258,65 @@ with tabs[10]:
             )
             st.markdown("---")
 
-# -------- 11) クラブ設定 --------
+      # =========================
+# Part 12 / 12  --- クラブ設定 / リセット / 終端
+# =========================
+
 with tabs[11]:
     st.markdown('<div style="color:white;font-size:20px;">クラブ設定</div>', unsafe_allow_html=True)
-    new_name = st.text_input("自クラブ名", value=ses.my_club, max_chars=40)
+
+    new_name = st.text_input("自クラブ名を変更", value=ses.my_club, max_chars=40)
     if st.button("クラブ名変更"):
         if new_name and new_name != ses.my_club:
             old = ses.my_club
             ses.my_club = new_name
-
-            # standings / leagues 更新処理
-            ses.leagues = build_leagues(ses.my_club)
+            # standings / leagues を再構築（ENG D1 の先頭に置き直す）
+            ses.leagues   = build_leagues(ses.my_club)
             ses.standings = build_standings(ses.leagues)
-            ses.club_map = build_club_map(ses.standings)
-
+            ses.club_map  = build_club_map(ses.standings)
             # 所属変更
             for dfname in ['senior','youth']:
                 df = getattr(ses, dfname)
                 df.loc[df['Club']==old,'Club']=ses.my_club
                 setattr(ses, dfname, df)
-
-            st.success("クラブ名を変更しました。アプリを再実行してください。")
+            st.success("クラブ名を変更しました。再実行すると正しく反映されます。")
 
     st.markdown("---")
     st.markdown("### シーズン管理")
-    if st.button("新シーズン開始"):
-        ses.week = 1
-        # standingsを初期化
+
+    def reset_season():
+        # 順位表だけリセット
         ses.standings = build_standings(ses.leagues)
-        # 選手の成長履歴クリア
-        ses.player_history = {}
+        # 個人成績リセット（OVR等能力値は維持）
+        for dfname in ['senior','youth','ai_players']:
+            df = getattr(ses, dfname)
+            for col in ['Matches_Played','Goals','Assists','IntlApps','Fatigue']:
+                if col in df.columns:
+                    df[col]=0
+            if 'Status' in df.columns:
+                df['Status'] = "通常"
+            if 'RentalFrom' in df.columns:
+                df[['RentalFrom','RentalUntil','OptionFee']] = [None,None,None]
+            setattr(ses, dfname, df)
+
+        ses.week = 1
         ses.finance_log.clear()
         ses.match_log.clear()
+        ses.player_history.clear()
         ses.intl_tournament.clear()
-        ses.intl_player_stats={}
+        ses.intl_player_stats.clear()
         ses.sns_posts.clear(); ses.sns_times.clear()
-        ses.rental_pending=[]
+        ses.rental_pending.clear()
+        ses.auto_selected = False
+        ses.starters = []
+        housekeeping()
+
+    if st.button("新シーズン開始"):
+        reset_season()
         st.success("新シーズン開始！")
 
-# =========================
-# Part 9 / 10  --- ハウスキーピング / 整合性補正
-# =========================
+    st.caption("保存が必要な場合は、Streamlit のセッションステートを外部に保存する処理を別途実装してください。")
 
-def housekeeping():
-    ses = st.session_state
+# ---- 終端表示 ----
+st.caption("✅ 全パート読み込み完了。エラーが出た場合は、エラーメッセージ冒頭行を教えてください。")
 
-    # 未定義ガード
-    for att, init_val in [
-        ('sns_posts', []), ('sns_times', []),
-        ('intl_player_stats', {}), ('rental_pending', []),
-        ('scout_pool', pd.DataFrame())
-    ]:
-        if att not in ses: setattr(ses, att, init_val)
-
-    # レンタル期限チェック
-    pending=[]
-    ses.senior, pending = tick_rentals(ses.senior, ses.week, pending)
-    ses.youth,  pending = tick_rentals(ses.youth,  ses.week, pending)
-    if pending:
-        ses.rental_pending = list(set(ses.rental_pending + pending))
-
-    # スタンドング再ソート
-    ses.standings = ses.standings.sort_values(['Nation','Division','Pts','GF'], ascending=[True,True,False,False]).reset_index(drop=True)
-
-    # クラブマップ更新
-    ses.club_map = build_club_map(ses.standings)
-
-    # 補強推奨再計算
-    ses.need_positions = suggest_positions(ses.senior)
-
-housekeeping()
-
-# =========================
-# Part 10 / 10  --- 終端処理
-# =========================
-
-st.caption("✅ 全コード読み込み完了。問題があればエラーメッセージ先頭をお知らせください。")
