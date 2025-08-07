@@ -143,3 +143,99 @@ def radar_chart(vals, labels):
     ax.set_yticklabels([])
     make_transparent(ax)
     return fig
+
+# =========================
+# CSS & テーブルスタイル
+# =========================
+st.markdown("""
+<style>
+body, .stApp { font-family:'IPAexGothic','Meiryo',sans-serif; }
+.stApp { background:linear-gradient(120deg,#202c46 0%,#314265 100%)!important; color:#eaf6ff; }
+.section-box h3{ font-size:1.45rem!important; }
+.section-box h4{ font-size:1.15rem!important; }
+.stTabs button{ color:#fff!important; background:transparent!important; }
+.stTabs [aria-selected="true"]{ border-bottom:2.5px solid #f7df70!important; }
+.stButton>button{ background:#27e3b9!important; color:#202b41!important; border-radius:10px; }
+button[kind="formSubmit"]{ background:#27e3b9!important; color:#202b41!important; border:2px solid #f7df70!important; }
+div[data-testid="stDataFrame"] table{ background:rgba(32,44,70,0.78)!important; color:#eaf6ff!important; }
+</style>
+""", unsafe_allow_html=True)
+
+# =========================
+# セッション初期化
+# =========================
+def init_session():
+    ses = SimpleNamespace()
+    ses.week          = 1
+    ses.my_club       = MY_DEFAULT_CLUB
+    ses.budget        = 5_000_000
+    ses.staff         = [Staff("マルコ・リッパ","Manager",800000,70),
+                         Staff("佐藤コーチ","Coach",500000,65),
+                         Staff("李スカウト","Scout",400000,60)]
+    ses.stadium       = Stadium(10000,1,20)
+    ses.sponsors      = []
+    ses.debts         = []
+    ses.finance_log   = []
+    ses.sns_posts     = []
+    ses.sns_times     = []
+    ses.senior        = pd.DataFrame()
+    ses.youth         = pd.DataFrame()
+    ses.leagues       = {}
+    ses.standings     = pd.DataFrame()
+    ses.club_map      = {}
+    ses.intl_tournament = {}
+    ses.world_cup     = None
+    ses.save_slots    = {}
+    return ses
+
+if "ses" not in st.session_state:
+    st.session_state.ses = init_session()
+ses = st.session_state.ses
+
+# =========================
+# 名前プール & 生成関数
+# =========================
+NAME_POOL = {
+    'ENG': {'given': ["Oliver","Jack","Harry","George","Noah"], 'surname': ["Smith","Jones","Taylor","Brown","Davies"]},
+    'GER': {'given': ["Lukas","Max","Leon","Paul","Jonas"],    'surname': ["Müller","Schmidt","Schneider","Fischer","Weber"]},
+    # ... 他国 (FRA, ESP, ITA(2部), NED, BRA, POR, BEL, TUR, ARG, URU, COL, USA, MEX, SAU, NGA, MAR, KOR, AUS) を同様に定義 ...
+}
+
+used_names = set()
+
+def make_name(nat):
+    pool = NAME_POOL.get(nat, NAME_POOL['ENG'])
+    while True:
+        name = f"{random.choice(pool['given'])} {random.choice(pool['surname'])}"
+        if name not in used_names:
+            used_names.add(name)
+            return name
+
+def gen_players(n, youth=False):
+    """選手データを n 人分生成（youth=True で若手）"""
+    lst = []
+    for _ in range(n):
+        nat   = random.choice(list(NAME_POOL.keys()))
+        name  = make_name(nat)
+        stats = {k: random.randint(52 if youth else 60, 82 if youth else 90) for k in ABILITY_KEYS}
+        ovr   = int(np.mean(list(stats.values())))
+        age   = random.randint(15 if youth else 18, 18 if youth else 34)
+        sal   = random.randint(30_000 if youth else 120_000, 250_000 if youth else 1_200_000)
+        lst.append({
+            "Name":        name,
+            "Nat":         nat,
+            "Pos":         random.choice(POS_ORDER),
+            "Age":         age,
+            **stats,
+            "OVR":         ovr,
+            "Salary":      sal,
+            "Contract":    random.randint(1, 2 if youth else 3),
+            "Matches":     0,
+            "Fatigue":     0,
+            "Injured":     False,
+            "Youth":       youth,
+            "Club":        None,
+            "PlayStyle":   random.sample(["職人","タックルマスター","ムードメーカー","影の支配者"], 2),
+            "GrowthType":  random.choice(["早熟","晩成","爆発"])
+        })
+    return pd.DataFrame(lst)
