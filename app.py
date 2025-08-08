@@ -1,8 +1,6 @@
-# app.py — Full Integrated Build (League + Transfers + Clauses + Loans + Sponsors + Cup(Groups+H2H+2-leg SF)
-#           + Scouting(FoW+Grades+Reports) + Youth/Growth + Training + Mentoring + Contracts + Tactics
-#           + Registration Rules + Demand Model + Rights + Rumors/News)
+# app.py — Full Integrated Build (JA UI + Navy Theme + GD fix)
 # ------------------------------------------------------------
-# Requirements: streamlit, pandas, numpy
+# pip install streamlit pandas numpy
 # Run: streamlit run app.py
 
 import streamlit as st
@@ -11,7 +9,80 @@ import numpy as np
 import random
 from typing import List, Optional, Dict
 
-st.set_page_config(page_title="Football Sim — Full Build", layout="wide")
+st.set_page_config(page_title="Football Sim — Full (JA)", layout="wide")
+
+# -----------------------
+# 軽量 i18n
+# -----------------------
+LANG = "ja"   # "en" に変えると英語キー
+TEXTS = {
+  "ja": {
+    "AppTitle": "⚽ フットボール・シム — フル版",
+    "Market": "移籍市場",
+    "LoansFA": "レンタル & フリー",
+    "Scouting": "スカウト & アカデミー",
+    "Squad": "スカッド",
+    "Finance": "財務",
+    "Settings": "設定",
+    "Weekly": "週進行",
+    "News": "ニュース",
+    "TransferMarket": "移籍市場",
+    "ContractNegotiation": "契約交渉（代理人）",
+    "MakeOffer": "オファー作成",
+    "IncomingOutgoing": "入出オファー一覧",
+    "LoansAndFA": "レンタル & フリーエージェント",
+    "ScoutingAcademy": "スカウト & アカデミー",
+    "Assignments": "スカウト割当",
+    "Recommendations": "推奨候補（推定OV順）",
+    "Academy": "アカデミー",
+    "ScoutReports": "スカウトレポート",
+    "SquadHdr": "スカッド",
+    "Tactics": "戦術（あなたのクラブ）",
+    "Training": "個別トレーニング & ポジ転向",
+    "Mentoring": "メンタリング",
+    "ContractExt": "契約延長（あなたの選手）",
+    "FinanceHdr": "財務",
+    "SponsorsActive": "スポンサー契約（有効）",
+    "SponsorOffers": "スポンサーオファー",
+    "BudgetLedger": "予算 & 仕訳",
+    "SettingsHdr": "設定",
+    "TicketPrice": "チケット価格（ホーム）",
+    "WeeklyHdr": "週進行 & リーグ",
+    "FixturesThisWeek": "今週の対戦",
+    "LastResults": "前週の結果",
+    "StandingsD1": "順位表 D1",
+    "StandingsD2": "順位表 D2",
+    "ContinentalHdr": "大陸大会 — グループ / 準決（2戦）/ 決勝",
+    "NewsHdr": "ニュース & 噂",
+    "NextWeek": "次の週へ進める",
+    "Save": "保存",
+    "SignSponsor": "スポンサー契約する",
+    "RefreshOffers": "オファー更新",
+  },
+  "en": {}
+}
+def t(key:str) -> str:
+    return TEXTS.get(LANG, {}).get(key, key)
+
+# -----------------------
+# 濃紺テーマ（CSS）
+# -----------------------
+def apply_theme():
+    st.markdown("""
+    <style>
+      .stApp { background-color:#18203A; color:#eaf6ff; }
+      .stButton>button { background:#27e3b9; color:#18203A; border:0; }
+      .stButton>button:hover { filter:brightness(0.92); }
+      label, .stMarkdown, .stText, .stCaption, .stMetric { color:#eaf6ff !important; }
+      .stDataFrame, .stTable { background: rgba(255,255,255,0.04); }
+      .stTextInput>div>div>input, .stNumberInput input, textarea {
+        color:#eaf6ff !important;
+        background: rgba(255,255,255,0.06) !important;
+      }
+      .stSelectbox div[data-baseweb="select"] > div { background: rgba(255,255,255,0.06); }
+      .stSlider { color:#eaf6ff; }
+    </style>
+    """, unsafe_allow_html=True)
 
 # -----------------------
 # Global Constants
@@ -46,7 +117,7 @@ def mv_from_ov_strict(ov:int) -> int:
     return (v // 5000) * 5000
 
 # -----------------------
-# Names (simple, multi-region flavored)
+# Names（各国）
 # -----------------------
 NAME_DB = {
     "ENG": (["Smith","Johnson","Brown","Taylor","Wilson","Evans","King","Wright","Walker","Harris"],
@@ -100,93 +171,18 @@ NAME_DB = {
     "NGA": (["Okafor","Balogun","Ogunleye","Ibrahim","Muhammad","Ojo","Okeke","Abiola","Lawal","Adebayo"],
             ["Emeka","Chinedu","Oluwaseun","Ayodele","Ifeanyi","Tobi","Kelechi","Sodiq","Samuel","Daniel"]),
 }
-
 NATION_POOL = list(NAME_DB.keys())
 
 def pick_name(nat: Optional[str]=None) -> str:
     nat = nat or random.choice(NATION_POOL)
     last, first = NAME_DB.get(nat, NAME_DB["ENG"])
-    # East Asia: family + given; others: given + family
+    # 東アジアは 姓 名 表記っぽく
     if nat in ("JPN","KOR","CHN"):
         return f"{random.choice(last)} {random.choice(first)}"
     return f"{random.choice(first)} {random.choice(last)}"
 
 # -----------------------
-# Session Initialization
-# -----------------------
-def base_players_for_club(club:str, n:int=20, nat_hint:Optional[str]=None) -> List[dict]:
-    rows = []
-    for _ in range(n):
-        pid = next_player_id()
-        nat = nat_hint or random.choice(NATION_POOL)
-        rows.append(generate_player(pid, club, nat))
-    return rows
-
-def init_session():
-    if "data" in st.session_state:
-        return
-    st.session_state.data = {}
-    D = st.session_state.data
-    D["season"] = 1
-    D["week"] = 1
-    D["club_name"] = USER_CLUB
-    D["next_player_id"] = 1000
-    D["budget"] = 25_000_000
-
-    # Players & Free Agents
-    cols = ["ID","Name","Pos","OV","POT","Age","Club","MV","Apps","Goals","OnLoan","LoanFrom","LoanAppearances",
-            "Growth","SPD","DEF","FIN","PosRoles","Nat","HGYearsClub","Morale"]
-    D["players"] = pd.DataFrame(columns=cols)
-    D["free_agents"] = pd.DataFrame(columns=cols)
-
-    # Seed squads
-    # User
-    you = base_players_for_club(USER_CLUB, n=22, nat_hint="JPN")
-    # CPU clubs
-    cpu_all = []
-    for c in CPU_CLUBS:
-        nat_hint = random.choice(["ENG","ESP","ITA","GER","FRA","NED","BRA","ARG","USA","MEX","POR","BEL","CRO","SUI","TUR","RUS"])
-        cpu_all += base_players_for_club(c, n=22, nat_hint=nat_hint)
-    D["players"] = pd.DataFrame(you + cpu_all)
-
-    # Some free agents
-    fa = []
-    for _ in range(40):
-        pid = next_player_id()
-        fa.append(generate_player(pid, None, random.choice(NATION_POOL)))
-    D["free_agents"] = pd.DataFrame(fa)
-
-    # Markets / Offers / Installments
-    D["transfer_offers"] = []
-    D["installment_out"] = []
-    D["installment_in"] = []
-    D["sold_sellon"] = {}       # pid -> {"pct":0.15,"club":from_club}
-    D["finance_log"] = []
-
-    # League / Club meta filled later
-    D["club_meta"] = {}
-    D["divisions"] = {}
-    D["fixtures"] = []
-    D["standings"] = {}
-    D["results_by_week"] = {}
-
-    # Init chains (order matters)
-    init_league()                       # league + club_meta
-    ensure_ticket_price()               # price baseline
-    ensure_sponsor_state()              # sponsors
-    init_continental_groups_for_season()# continental cup groups
-    ensure_scouting_state()             # scouting/FoW
-    ensure_scout_reports()
-    youth_intake()                      # initial academy
-    ensure_contract_state()
-    ensure_player_wages()
-    ensure_player_nations_and_hg()
-    ensure_registration_rules()
-    ensure_rights_state()
-    ensure_news_state()
-
-# -----------------------
-# Player Generation (full with nat)
+# Player Generation
 # -----------------------
 GROWTH_TYPES = ["早熟","標準","晩成"]
 
@@ -197,7 +193,6 @@ def generate_player(pid:int, club:Optional[str], nat: Optional[str]=None) -> dic
     age= random.randint(17, 33)
     growth = random.choice(GROWTH_TYPES)
     nat = nat or random.choice(NATION_POOL)
-    # substats around OV
     spd = max(30, min(99, int(np.random.normal(ov, 8))))
     dfn = max(30, min(99, int(np.random.normal(ov, 8))))
     fin = max(30, min(99, int(np.random.normal(ov, 8))))
@@ -224,18 +219,75 @@ def generate_player(pid:int, club:Optional[str], nat: Optional[str]=None) -> dic
         "Morale": morale
     }
 
+def base_players_for_club(club:str, n:int=20, nat_hint:Optional[str]=None) -> List[dict]:
+    rows = []
+    for _ in range(n):
+        pid = next_player_id()
+        nat = nat_hint or random.choice(NATION_POOL)
+        rows.append(generate_player(pid, club, nat))
+    return rows
+
+# -----------------------
+# 初期化（後で定義する関数を呼ぶが、実行はUI末尾）
+# -----------------------
+def init_session():
+    if "data" in st.session_state:
+        return
+    st.session_state.data = {}
+    D = st.session_state.data
+    D["season"] = 1
+    D["week"] = 1
+    D["club_name"] = USER_CLUB
+    D["next_player_id"] = 1000
+    D["budget"] = 25_000_000
+
+    # Players & Free Agents
+    cols = ["ID","Name","Pos","OV","POT","Age","Club","MV","Apps","Goals","OnLoan","LoanFrom","LoanAppearances",
+            "Growth","SPD","DEF","FIN","PosRoles","Nat","HGYearsClub","Morale"]
+    D["players"] = pd.DataFrame(columns=cols)
+    D["free_agents"] = pd.DataFrame(columns=cols)
+
+    # Seed squads
+    you = base_players_for_club(USER_CLUB, n=22, nat_hint="JPN")
+    cpu_all = []
+    for c in CPU_CLUBS:
+        nat_hint = random.choice(["ENG","ESP","ITA","GER","FRA","NED","BRA","ARG","USA","MEX","POR","BEL","CRO","SUI","TUR","RUS"])
+        cpu_all += base_players_for_club(c, n=22, nat_hint=nat_hint)
+    D["players"] = pd.DataFrame(you + cpu_all)
+
+    # Free agents
+    fa = []
+    for _ in range(40):
+        pid = next_player_id()
+        fa.append(generate_player(pid, None, random.choice(NATION_POOL)))
+    D["free_agents"] = pd.DataFrame(fa)
+
+    # Markets / Offers / Installments
+    D["transfer_offers"] = []
+    D["installment_out"] = []
+    D["installment_in"] = []
+    D["sold_sellon"] = {}
+    D["finance_log"] = []
+
+    # League / Cup / Scouting etc. は UI起動時にまとめて呼ぶ
+    D["club_meta"] = {}
+    D["divisions"] = {}
+    D["fixtures"] = []
+    D["standings"] = {}
+    D["results_by_week"] = {}
+
 # ============================================
 # League (Two Divisions) + Tactics + Registration + Demand Model
 # ============================================
 
+# 国籍ごとの微ボーナス（クラブ強度に加算）
 NATION_TRAIT_BONUS = {
     "BRA": +2, "ARG": +2, "URU": +1,
     "ESP": +2, "POR": +1, "ITA": +1, "FRA": +1, "GER": +2, "NED": +1, "BEL": +1, "CRO": +1, "SUI": 0, "TUR": 0,
-    "ENG": +1, "SWE": 0, "DEN": 0, "RUS": 0,
+    "ENG": +1, "RUS": 0,
     "JPN": +1, "KOR": 0, "CHN": 0, "AUS": 0,
     "USA": 0, "CAN": 0, "MEX": +1, "EGY": 0, "GHA": 0, "NGA": 0
 }
-
 def _nat_bonus(nat: str) -> int:
     return NATION_TRAIT_BONUS.get(nat, 0)
 
@@ -263,14 +315,11 @@ def _assign_nations_to_clubs(clubs: list) -> dict:
     meta = {}
     for c in clubs:
         nat = random.choice(nat_pool)
-        meta[c] = {
-            "nation": nat,
-            "pop": random.randint(45, 90),
-            "ticket": random.randint(18, 36)
-        }
+        meta[c] = {"nation": nat, "pop": random.randint(45, 90), "ticket": random.randint(18, 36)}
     return meta
 
 def init_league():
+    """D1/D2 各8クラブ、二回戦総当たり（全14週）"""
     D = st.session_state.data
     if D.get("league_ready"):
         return
@@ -279,12 +328,13 @@ def init_league():
         base += _make_extra_club_names(16 - len(base))
     clubs16 = base[:16]
     club_meta = _assign_nations_to_clubs(clubs16)
+
     others = [c for c in clubs16 if c != USER_CLUB]
     random.shuffle(others)
     d1 = others[:8]
     d2 = [USER_CLUB] + others[8:15]
     while len(d1) < 8:
-        d1.append(others.pop())
+        d1.append(_make_extra_club_names(1)[0])
     while len(d2) < 8:
         newc = _make_extra_club_names(1)[0]
         d2.append(newc); club_meta[newc] = {"nation": random.choice(list(NATION_TRAIT_BONUS.keys())), "pop":60, "ticket":24}
@@ -327,7 +377,7 @@ def init_league():
     D["results_by_week"] = {}
     D["league_ready"] = True
 
-# ------- Registration Rules & Demand Model ----------
+# ------- 登録ルール & 需要モデル ----------
 def ensure_registration_rules():
     D = st.session_state.data
     D.setdefault("registration_rules", {"max_foreigners":5, "min_homegrown":2})
@@ -395,7 +445,7 @@ def demand_attendance(home:str, away:str, price:int) -> int:
     fill = base_fill * price_factor * rank_factor * random.uniform(0.9, 1.05)
     return int(max(1200, min(cap, cap*fill)))
 
-# ------------- Tactics -------------
+# ------------- 戦術AI -------------
 DEFAULT_TACTIC = {"style":"balanced","line":50,"press":50,"tempo":50}
 def ensure_tactics_state():
     D = st.session_state.data
@@ -410,10 +460,7 @@ def _club_nat(club:str) -> str:
 def _club_strength(club:str) -> float:
     D = st.session_state.data
     pl = D["players"][D["players"]["Club"] == club]
-    if pl.empty:
-        base = random.randint(60, 75)
-    else:
-        base = float(pl["OV"].mean())
+    base = float(pl["OV"].mean()) if not pl.empty else random.randint(60, 75)
     morale = float(pl["Morale"].mean()) if "Morale" in pl.columns and not pl.empty else 60.0
     chem = float(D.get("chemistry_bonus", {}).get(club, 0.0))
     return base + _nat_bonus(_club_nat(club)) + (morale-60)/20.0 + chem
@@ -445,19 +492,19 @@ def _simulate_match(home:str, away:str) -> dict:
     ph = _team_plan(home, away); pa = _team_plan(away, home)
     sh = _club_strength(home) * ph["atk"] / max(0.5, pa["dfn"])
     sa = _club_strength(away) * pa["atk"] / max(0.5, ph["dfn"])
-    sh *= 1.03
+    sh *= 1.03  # ホーム微補正
     lam_h = max(0.15, 1.10 + (sh - sa)/55.0)
     lam_a = max(0.15, 1.10 + (sa - sh)/55.0)
     gh = np.random.poisson(lam=lam_h)
     ga = np.random.poisson(lam=lam_a)
 
-    # Lineup respecting rules
+    # ルールを満たす先発選出（経験値カウント）
     for club in [home, away]:
         lineup = select_lineup_respecting_rules(club)
         if len(lineup)>0:
             D["players"].loc[lineup, "Apps"] += 1
 
-    # Goals marking
+    # 得点者記録（簡易）
     if gh > 0:
         home_squad = D["players"][D["players"]["Club"]==home]
         if not home_squad.empty:
@@ -471,13 +518,7 @@ def _simulate_match(home:str, away:str) -> dict:
                 idx = away_squad.sample(1).index
                 D["players"].loc[idx, "Goals"] += 1
 
-    # Your club add-ons check
-    you_ids = D["players"][D["players"]["Club"]==USER_CLUB][["ID","Apps","Goals"]]
-    for pid, apps, goals in you_ids.values:
-        maybe_trigger_add_on("appearances", int(pid), int(apps))
-        maybe_trigger_add_on("goals", int(pid), int(goals))
-
-    # Gate income with demand & price
+    # ゲート収入
     if home == USER_CLUB:
         ensure_ticket_price()
         price = int(D["ticket_price"])
@@ -486,23 +527,25 @@ def _simulate_match(home:str, away:str) -> dict:
         log_finance(+income, f"Gate ({home} vs {away}) [{attendance:,} x €{price}]")
     return {"home":home,"away":away,"gh":int(gh),"ga":int(ga)}
 
+# ❗GD 計算を修正したリーグテーブル更新
 def _apply_result_to_table(div:str, res:dict):
     D = st.session_state.data
     tb = D["standings"][div]
     h,a,gh,ga = res["home"], res["away"], res["gh"], res["ga"]
     for club, gf, ga_ in [(h, gh, ga), (a, ga, gh)]:
-        tb.at[club,"P"]  += 1
-        tb.at[club,"GF"] += gf
-        tb.at[club,"GA"] += ga_
-        tb.at[club,"GD"]  = tb.at[club]["GF"] - tb.at[club]["GA"]
+        tb.at[club, "P"]  = int(tb.at[club, "P"]) + 1
+        tb.at[club, "GF"] = int(tb.at[club, "GF"]) + int(gf)
+        tb.at[club, "GA"] = int(tb.at[club, "GA"]) + int(ga_)
+        tb.at[club, "GD"] = int(tb.at[club, "GF"]) - int(tb.at[club, "GA"])
     if gh > ga:
-        tb.at[h,"W"] += 1; tb.at[a,"L"] += 1; tb.at[h,"Pts"] += 3
+        tb.at[h, "W"] += 1; tb.at[a, "L"] += 1; tb.at[h, "Pts"] += 3
     elif gh < ga:
-        tb.at[a,"W"] += 1; tb.at[h,"L"] += 1; tb.at[a,"Pts"] += 3
+        tb.at[a, "W"] += 1; tb.at[h, "L"] += 1; tb.at[a, "Pts"] += 3
     else:
-        tb.at[h,"D"] += 1; tb.at[a,"D"] += 1; tb.at[h,"Pts"] += 1; tb.at[a,"Pts"] += 1
+        tb.at[h, "D"] += 1; tb.at[a, "D"] += 1; tb.at[h, "Pts"] += 1; tb.at[a, "Pts"] += 1
 
 def _promote_relegate():
+    """シーズン終了時の自動昇降格と次季日程再生成"""
     D = st.session_state.data
     d1 = D["standings"]["D1"].sort_values(["Pts","GD","GF"], ascending=[False,False,False])
     d2 = D["standings"]["D2"].sort_values(["Pts","GD","GF"], ascending=[False,False,False])
@@ -519,7 +562,7 @@ def _promote_relegate():
     D["standings"]["D1"] = _blank_table(new_d1)
     D["standings"]["D2"] = _blank_table(new_d2)
 
-    # Rebuild fixtures
+    # 次季の対戦を再生成
     def _round_robin(teams):
         n=len(teams); arr=teams[:]; rounds=[]
         for r in range(n-1):
@@ -596,13 +639,11 @@ def schedule_installments(deal_id:int, total:int, count:int, start_week:int, dir
 def apply_installments_this_week():
     D = st.session_state.data
     wk = D["week"]
-    # pay outs
     outs = [x for x in D["installment_out"] if x["due_week"]==wk]
     for r in outs:
         D["budget"] -= int(r["amount"])
         log_finance(-int(r["amount"]), f"Installment payment (deal {r['deal_id']})")
     D["installment_out"] = [x for x in D["installment_out"] if x["due_week"]!=wk]
-    # receive ins
     ins = [x for x in D["installment_in"] if x["due_week"]==wk]
     for r in ins:
         D["budget"] += int(r["amount"])
@@ -610,8 +651,8 @@ def apply_installments_this_week():
     D["installment_in"] = [x for x in D["installment_in"] if x["due_week"]!=wk]
 
 def maybe_trigger_add_on(kind:str, pid:int, value:int):
-    # kind: "appearances"|"goals" (threshold in offer.add_ons)
-    # For simplicity, we only log; in real, you'd link to deal.
+    # 例: {"kind":"appearances","threshold":20,"amount":500000}
+    # 実際の紐付けは簡略化（将来: deal_id 紐付け）
     pass
 
 def simulate_cpu_resale(prob_per_week:float=0.30, max_deals:int=1):
@@ -622,25 +663,22 @@ def simulate_cpu_resale(prob_per_week:float=0.30, max_deals:int=1):
         cand = pool.sample(1).iloc[0]
         old_club = cand["Club"]
         price = int(cand["MV"] * random.uniform(1.1, 1.8))
-        # Matching right notice
         ensure_rights_state()
         mr = D["matching_rights"].get(int(cand["ID"]))
         if mr and mr["holder"]==USER_CLUB and D["season"] <= mr["expires_season"]:
             add_news({"type":"match_right","week":D["week"],"title":"Matching Right Opportunity",
                       "body":f"You may match €{price:,} to sign {cand['Name']}.",
                       "player_id": int(cand["ID"]), "price": int(price), "from_club": old_club})
-        # Perform sale among CPUs (no money tracking between CPUs for brevity)
         new_club = random.choice([c for c in CPU_CLUBS if c != old_club])
         idx = D["players"][D["players"]["ID"]==int(cand["ID"])].index[0]
         D["players"].at[idx,"Club"] = new_club
 
 def loan_weekly_tick():
-    # (stub for later expansion)
+    # （拡張用スタブ）
     pass
 
 def is_window_open() -> bool:
     D = st.session_state.data
-    # Simple: weeks 1-2 and 8-10 open
     return D["week"] in [1,2,8,9,10]
 
 def generate_cpu_offers_for_your_players(prob:float=0.40):
@@ -796,7 +834,6 @@ REGION_OF = {
     "BRA":"SA","ARG":"SA","URU":"SA","MEX":"NA","USA":"NA","CAN":"NA",
     "JPN":"AS","KOR":"AS","CHN":"AS","AUS":"OC","RUS":"EU","EGY":"AF","GHA":"AF","NGA":"AF"
 }
-
 def nation_to_region(nat:str) -> str:
     return REGION_OF.get(nat, "GLB")
 
@@ -918,6 +955,7 @@ def scouting_weekly_tick():
 # Youth / Growth
 # ============================================
 YOUTH_INTAKE_WEEK = 2
+
 def ensure_player_nations_and_hg():
     D = st.session_state.data
     if D["players"].empty: return
@@ -1265,10 +1303,10 @@ def _cc_apply_result(group:str, res:dict):
     tb = D["cc"]["tables"][group]
     h,a,gh,ga = res["home"], res["away"], res["gh"], res["ga"]
     for club, gf, ga_ in [(h, gh, ga), (a, ga, gh)]:
-        tb.at[club,"P"]  += 1
-        tb.at[club,"GF"] += gf
-        tb.at[club,"GA"] += ga_
-        tb.at[club,"GD"]  = tb.at[club]["GF"] - tb.at[club]["GA"]
+        tb.at[club, "P"]  = int(tb.at[club, "P"]) + 1
+        tb.at[club, "GF"] = int(tb.at[club, "GF"]) + int(gf)
+        tb.at[club, "GA"] = int(tb.at[club, "GA"]) + int(ga_)
+        tb.at[club, "GD"] = int(tb.at[club, "GF"]) - int(tb.at[club, "GA"])
     if gh > ga:
         tb.at[h,"W"] += 1; tb.at[a,"L"] += 1; tb.at[h,"Pts"] += 3
     elif gh < ga:
@@ -1432,25 +1470,41 @@ def play_week():
 # UI
 # ============================================
 init_session()
+apply_theme()  # テーマ適用
+
+# ここで一度だけ初期化チェーンを完了
+init_league()
+ensure_ticket_price()
+ensure_sponsor_state()
+init_continental_groups_for_season()
+ensure_scouting_state()
+ensure_scout_reports()
+ensure_registration_rules()
+ensure_contract_state()
+ensure_player_wages()
+ensure_player_nations_and_hg()
+ensure_rights_state()
+ensure_news_state()
+
 D = st.session_state.data
 
-st.title("⚽ Football Sim — Full Build")
+st.title(t("AppTitle"))
 
 tabs = st.tabs([
-    "Market",
-    "Loans & Free Agents",
-    "Scouting & Academy",
-    "Squad",
-    "Finance",
-    "Settings",
-    "Weekly Tick",
-    "News"
+    t("Market"),
+    t("LoansFA"),
+    t("Scouting"),
+    t("Squad"),
+    t("Finance"),
+    t("Settings"),
+    t("Weekly"),
+    t("News")
 ])
 tab_market, tab_loans, tab_scout, tab_squad, tab_fin, tab_set, tab_week, tab_news = tabs
 
 # ------------- Market -------------
 with tab_market:
-    st.header("🛒 Transfer Market")
+    st.header("🛒 " + t("TransferMarket"))
     cpu_roster = D["players"][D["players"]["Club"]!=D["club_name"]].copy()
     if not cpu_roster.empty:
         cpu_roster["EstOV"] = cpu_roster["ID"].apply(visible_ov_for_user)
@@ -1460,58 +1514,58 @@ with tab_market:
                                  max_value=int(cpu_roster["ID"].max()),
                                  value=int(cpu_roster["ID"].min()))
     else:
-        st.write("No external players.")
+        st.write("他クラブの選手がいません。")
         sel_id = None
 
     st.markdown("---")
-    st.subheader("🤝 Contract Negotiation (with Player Agent)")
+    st.subheader("🤝 " + t("ContractNegotiation"))
     if sel_id is not None:
         base = baseline_terms_for(int(sel_id))
         c1,c2,c3 = st.columns(3)
         with c1:
-            wage = st.number_input("Wage / week (€)", 0, 1_000_000, int(base["wage"]), 1000)
-            signing = st.number_input("Signing Bonus (€)", 0, 50_000_000, int(base["signing"]), 50_000)
+            wage = st.number_input("週給 (€)", 0, 1_000_000, int(base["wage"]), 1000)
+            signing = st.number_input("サインボーナス (€)", 0, 50_000_000, int(base["signing"]), 50_000)
         with c2:
-            appsb = st.number_input("Appearance Bonus / wk (€)", 0, 500_000, int(base["apps_bonus"]), 1000)
-            goalsb= st.number_input("Goal Bonus / wk (€)", 0, 500_000, int(base["goals_bonus"]), 1000)
+            appsb = st.number_input("出場ボーナス/週 (€)", 0, 500_000, int(base["apps_bonus"]), 1000)
+            goalsb= st.number_input("得点ボーナス/週 (€)", 0, 500_000, int(base["goals_bonus"]), 1000)
         with c3:
-            years = st.slider("Length (years)", 1, 5, max(2, base["length_weeks"]//52))
-            clause= st.number_input("Release Clause (€)", 0, 500_000_000, int(base["release_clause"]), 100000)
+            years = st.slider("契約年数", 1, 5, max(2, base["length_weeks"]//52))
+            clause= st.number_input("放出条項 (€)", 0, 500_000_000, int(base["release_clause"]), 100000)
         if "neg_round" not in st.session_state: st.session_state.neg_round = 1
-        if st.button("🗣️ Offer to Agent"):
+        if st.button("🗣️ オファー提示"):
             offer = {"wage":int(wage), "signing":int(signing), "apps_bonus":int(appsb), "goals_bonus":int(goalsb),
                      "length_weeks": int(years*52), "release_clause": int(clause)}
             verdict = evaluate_contract_offer(int(sel_id), offer, st.session_state.neg_round)
             if verdict["decision"]=="accept":
-                st.success("Agent accepted your terms. Terms are locked for this player.")
+                st.success("代理人が合意。条件を仮保存しました。")
                 D["pending_terms"][int(sel_id)] = offer
                 st.session_state.neg_round = 1
             elif verdict["decision"]=="counter":
-                st.warning(f"Counter: {verdict['counter']}")
+                st.warning(f"カウンター提案: {verdict['counter']}")
                 st.session_state.neg_round += 1
             else:
-                st.error("Agent walked away. Try again next window.")
+                st.error("交渉決裂。次のウィンドウで再挑戦。")
                 st.session_state.neg_round = 1
 
     st.markdown("---")
-    st.subheader("✍️ Make an Offer")
+    st.subheader("✍️ " + t("MakeOffer"))
     if sel_id is not None:
         with st.form("offer_form"):
-            fee_total = st.number_input("Fee Total (€)", 0, 500_000_000, 10_000_000, 100_000)
-            upfront   = st.number_input("Upfront (€)", 0, 500_000_000, 4_000_000, 100_000)
-            inst_n    = st.number_input("Installments (count)", 0, 12, 2, 1)
-            inst_freq = st.selectbox("Installment frequency", ["yearly","halfyear","monthly"], index=0)
-            sell_on   = st.slider("Sell-on %", 0.0, 0.3, 0.1, 0.05)
-            with st.expander("Advanced Clauses"):
-                bb_on = st.checkbox("Add Buy-back clause")
-                bb_fee= st.number_input("Buy-back Fee (€)", 0, 200_000_000, 0, 100_000, disabled=not bb_on)
-                bb_exp= st.number_input("Buy-back Expires (season)", 1, 20, D["season"]+3, disabled=not bb_on)
-                mr_on = st.checkbox("Add Matching Right (you hold)")
-                mr_exp= st.number_input("Matching Right Expires (season)", 1, 20, D["season"]+3, disabled=not mr_on)
-            submitted = st.form_submit_button("Send Offer")
+            fee_total = st.number_input("移籍金 合計 (€)", 0, 500_000_000, 10_000_000, 100_000)
+            upfront   = st.number_input("前金 (€)", 0, 500_000_000, 4_000_000, 100_000)
+            inst_n    = st.number_input("分割回数", 0, 12, 2, 1)
+            inst_freq = st.selectbox("分割頻度", ["yearly","halfyear","monthly"], index=0)
+            sell_on   = st.slider("転売条項 %", 0.0, 0.3, 0.1, 0.05)
+            with st.expander("高度な条項"):
+                bb_on = st.checkbox("買い戻し条項を追加")
+                bb_fee= st.number_input("買い戻し金額 (€)", 0, 200_000_000, 0, 100_000, disabled=not bb_on)
+                bb_exp= st.number_input("買い戻し期限（シーズン）", 1, 20, D["season"]+3, disabled=not bb_on)
+                mr_on = st.checkbox("マッチングライト（自クラブ保持）")
+                mr_exp= st.number_input("マッチング期限（シーズン）", 1, 20, D["season"]+3, disabled=not mr_on)
+            submitted = st.form_submit_button("送信")
             if submitted:
                 if fee_total < upfront:
-                    st.error("Upfront cannot exceed fee total.")
+                    st.error("前金が合計を超えています。")
                 else:
                     off = make_offer(
                         player_id=sel_id,
@@ -1523,30 +1577,30 @@ with tab_market:
                         buyback=({"fee":int(bb_fee),"expires":int(bb_exp)} if bb_on else None),
                         matching_right=({"holder":USER_CLUB,"expires":int(mr_exp)} if mr_on else None)
                     )
-                    st.success(f"Offer #{off['id']} sent.")
+                    st.success(f"オファー #{off['id']} を送信しました。")
 
     st.markdown("---")
-    st.subheader("📨 Incoming / Outgoing Offers")
+    st.subheader("📨 " + t("IncomingOutgoing"))
     st.dataframe(pd.DataFrame(D["transfer_offers"]) if D["transfer_offers"] else pd.DataFrame(columns=["id","player_id","from_club","to_club","fee_total"]))
 
 # ------------- Loans & Free Agents -------------
 with tab_loans:
-    st.header("🔄 Loans & Free Agents")
+    st.header("🔄 " + t("LoansAndFA"))
     fa = D["free_agents"].copy()
     if not fa.empty:
         fa["EstOV"] = fa["ID"].apply(visible_ov_for_user)
         st.dataframe(fa[["ID","Name","Pos","EstOV","MV","Nat"]].set_index("ID").sort_values("MV", ascending=False))
     else:
-        st.write("No free agents.")
+        st.write("フリーエージェントはいません。")
 
 # ------------- Scouting & Academy -------------
 with tab_scout:
-    st.header("🔎 Scouting & 🧒 Academy")
+    st.header("🔎 " + t("ScoutingAcademy"))
     ensure_scouting_state()
     sc_df = pd.DataFrame(D["scouts"])
     st.dataframe(sc_df.set_index("id"))
 
-    st.markdown("**Assignments**")
+    st.markdown("**" + t("Assignments") + "**")
     for s in D["scouts"]:
         c1, c2, c3 = st.columns([1.2,1.2,2])
         with c1:
@@ -1562,228 +1616,227 @@ with tab_scout:
             else:
                 val = "shortlist"
         with c3:
-            if st.button(f"💾 Save #{s['id']}", key=f"save_asg_{s['id']}"):
+            if st.button(f"{t('Save')} #{s['id']}", key=f"save_asg_{s['id']}"):
                 D["scout_assignments"][s["id"]] = {"type": atype, "value": val}
-                st.success("Saved")
+                st.success("保存しました。")
 
     st.markdown("---")
-    st.subheader("Recommendations (by estimated OV)")
+    st.subheader(t("Recommendations"))
     pool = D["players"][D["players"]["Club"] != D["club_name"]].copy()
     if not pool.empty:
         pool["EstOV"] = pool["ID"].apply(visible_ov_for_user)
         rec = pool.sort_values("EstOV", ascending=False).head(20)[["ID","Name","Pos","Club","EstOV","MV"]]
         st.dataframe(rec.set_index("ID"))
-        pick = st.number_input("Add to shortlist (Player ID)", min_value=int(rec.index.min()), max_value=int(rec.index.max()), value=int(rec.index.min()))
-        if st.button("➕ Add to shortlist"):
+        pick = st.number_input("ショートリストに追加 (ID)", min_value=int(rec.index.min()), max_value=int(rec.index.max()), value=int(rec.index.min()))
+        if st.button("ショートリスト追加"):
             D["scout_shortlist"].add(int(pick))
-            st.info("Added to shortlist.")
+            st.info("追加しました。")
     else:
-        st.write("No external players.")
+        st.write("対象選手なし。")
 
     st.markdown("---")
-    st.subheader("Academy")
+    st.subheader(t("Academy"))
     ac = D.get("academy", pd.DataFrame())
     if ac is None or ac.empty:
-        st.write("No academy players yet.")
-        if st.button("Run Youth Intake now"):
-            youth_intake(); st.success("Intake done.")
+        st.write("アカデミー選手はいません。")
+        if st.button("ユース獲得を実行"):
+            youth_intake(); st.success("実行しました。")
     else:
         show = ac[["ID","Name","Age","Pos","OV","POT","MV"]].copy()
         st.dataframe(show.set_index("ID"))
         c1, c2 = st.columns(2)
         with c1:
             if not show.empty:
-                pid = st.number_input("Promote ID", min_value=int(show.index.min()), max_value=int(show.index.max()), value=int(show.index.min()))
-                if st.button("⬆️ Promote to Senior"):
-                    r = promote_from_academy(int(pid)); st.success("Promoted.") if r=="ok" else st.error(r)
+                pid = st.number_input("昇格させるID", min_value=int(show.index.min()), max_value=int(show.index.max()), value=int(show.index.min()))
+                if st.button("⬆️ 昇格"):
+                    r = promote_from_academy(int(pid)); st.success("昇格しました。") if r=="ok" else st.error(r)
         with c2:
             if not show.empty:
-                pid2 = st.number_input("Release ID", min_value=int(show.index.min()), max_value=int(show.index.max()), value=int(show.index.min()), key="rel_id")
-                if st.button("🗑 Release to Free Agents"):
-                    r = release_from_academy(int(pid2)); st.success("Released to FA.") if r=="ok" else st.error(r)
+                pid2 = st.number_input("解雇してFAへ (ID)", min_value=int(show.index.min()), max_value=int(show.index.max()), value=int(show.index.min()), key="rel_id")
+                if st.button("🗑 解雇"):
+                    r = release_from_academy(int(pid2)); st.success("フリーエージェントに移動。") if r=="ok" else st.error(r)
 
     st.markdown("---")
-    st.subheader("🗂 Scout Reports")
+    st.subheader("🗂 " + t("ScoutReports"))
     if not D["players"].empty:
-        pid_rep = st.number_input("Player ID to view report", min_value=int(D["players"]["ID"].min()), max_value=int(D["players"]["ID"].max()), value=int(D["players"]["ID"].min()))
+        pid_rep = st.number_input("レポートを見る選手ID", min_value=int(D["players"]["ID"].min()), max_value=int(D["players"]["ID"].max()), value=int(D["players"]["ID"].min()))
         reps = D["scout_reports"].get(int(pid_rep), [])
         if reps:
             for r in sorted(reps, key=lambda x:x["week"], reverse=True)[:5]:
                 st.markdown(f"**W{r['week']} – {r['scout']} (⭐{r['grade']})**")
                 st.code(r["summary"])
         else:
-            st.write("No reports yet.")
+            st.write("レポートはありません。")
 
 # ------------- Squad -------------
 with tab_squad:
-    st.header("👥 Squad")
+    st.header("👥 " + t("SquadHdr"))
     you = D["players"][D["players"]["Club"]==D["club_name"]]
     st.dataframe(you[["ID","Name","Pos","OV","POT","Age","MV","Nat","Morale","SPD","DEF","FIN","PosRoles"]].set_index("ID").sort_values("OV", ascending=False))
 
     st.markdown("---")
-    st.subheader("🧠 Tactics (Your Club)")
+    st.subheader("🧠 " + t("Tactics"))
     ensure_tactics_state()
-    tac = D["tactics"].get(D["club_name"], dict(DEFAULT_TACTIC))
+    tac = D["tactics"].get(D["club_name"], {"style":"balanced","line":50,"press":50,"tempo":50})
     t1,t2,t3,t4 = st.columns(4)
     with t1:
-        style = st.selectbox("Style", ["balanced","possession","counter","direct","press"],
+        style = st.selectbox("スタイル", ["balanced","possession","counter","direct","press"],
                              index=["balanced","possession","counter","direct","press"].index(tac["style"]))
     with t2:
-        line = st.slider("Line", 0, 100, int(tac["line"]))
+        line = st.slider("ライン", 0, 100, int(tac["line"]))
     with t3:
-        press= st.slider("Press", 0, 100, int(tac["press"]))
+        press= st.slider("プレス", 0, 100, int(tac["press"]))
     with t4:
-        tempo= st.slider("Tempo", 0, 100, int(tac["tempo"]))
-    if st.button("Save Tactics"):
+        tempo= st.slider("テンポ", 0, 100, int(tac["tempo"]))
+    if st.button("戦術を保存"):
         D["tactics"][D["club_name"]] = {"style":style,"line":int(line),"press":int(press),"tempo":int(tempo)}
-        st.success("Tactics saved.")
+        st.success("保存しました。")
 
     st.markdown("---")
-    st.subheader("🏋️ Individual Training & Position Change")
+    st.subheader("🏋️ " + t("Training"))
     ensure_training_state()
     if not you.empty:
-        pid_tr = st.number_input("Player ID", min_value=int(you["ID"].min()), max_value=int(you["ID"].max()), value=int(you["ID"].min()), key="tp_pid")
-        focus = st.selectbox("Focus", ["speed","defense","finishing"])
-        pos_t  = st.selectbox("Target Position (optional)", ["(none)"]+POSITIONS)
-        weeks  = st.slider("Weeks for position conversion", 0, 20, 8)
-        if st.button("Save Training Plan"):
+        pid_tr = st.number_input("選手ID", min_value=int(you["ID"].min()), max_value=int(you["ID"].max()), value=int(you["ID"].min()), key="tp_pid")
+        focus = st.selectbox("重点", ["speed","defense","finishing"])
+        pos_t  = st.selectbox("ポジション転向（任意）", ["(なし)"]+POSITIONS)
+        weeks  = st.slider("転向に必要な週", 0, 20, 8)
+        if st.button("トレーニング保存"):
             plan = {"focus":focus}
-            if pos_t != "(none)":
+            if pos_t != "(なし)":
                 plan["pos_target"] = pos_t; plan["weeks_left"] = int(weeks)
             D["training_plans"][int(pid_tr)] = plan
-            st.success("Training plan saved.")
+            st.success("保存しました。")
 
     st.markdown("---")
-    st.subheader("🤝 Mentoring")
+    st.subheader("🤝 " + t("Mentoring"))
     ensure_mentoring_state()
     if not you.empty:
-        mentor = st.selectbox("Mentor", you["ID"].astype(int))
-        mentee = st.selectbox("Mentee (≤22yo 推奨)", you["ID"].astype(int), key="mentee_sel")
-        if st.button("Add Pair"):
+        mentor = st.selectbox("メンター", you["ID"].astype(int))
+        mentee = st.selectbox("メンティ（≤22歳推奨）", you["ID"].astype(int), key="mentee_sel")
+        if st.button("ペア追加"):
             if int(mentor)!=int(mentee):
                 D["mentoring_pairs"].append({"mentor":int(mentor), "mentee":int(mentee)})
-                st.success("Pair added.")
-    st.caption(f"Chemistry bonus (your club): {D.get('chemistry_bonus',{}).get(D['club_name'],0.0):.2f}")
+                st.success("追加しました。")
+    st.caption(f"チーム化学ボーナス: {D.get('chemistry_bonus',{}).get(D['club_name'],0.0):.2f}")
 
     st.markdown("---")
-    st.subheader("📝 Contract Extension (Your Player)")
+    st.subheader("📝 " + t("ContractExt"))
     if not you.empty:
-        pidx = st.number_input("Player ID (your club)", min_value=int(you["ID"].min()), max_value=int(you["ID"].max()), value=int(you["ID"].min()), key="ext_pid")
+        pidx = st.number_input("自クラブ選手ID", min_value=int(you["ID"].min()), max_value=int(you["ID"].max()), value=int(you["ID"].min()), key="ext_pid")
         cur = D["contracts"].get(int(pidx))
-        st.write("Current:", cur if cur else "(no record)")
+        st.write("現在:", cur if cur else "(なし)")
         if cur:
             bw = baseline_terms_for(int(pidx))
             e1,e2,e3 = st.columns(3)
             with e1:
-                nwage = st.number_input("New Wage / week (€)", 0, 1_000_000, int(max(cur["wage"], bw["wage"]*0.9)), 1000, key="nw1")
-                nsign = st.number_input("New Signing Bonus (€)", 0, 50_000_000, 0, 50_000, key="ns1")
+                nwage = st.number_input("週給 (€)", 0, 1_000_000, int(max(cur["wage"], bw["wage"]*0.9)), 1000, key="nw1")
+                nsign = st.number_input("サインボーナス (€)", 0, 50_000_000, 0, 50_000, key="ns1")
             with e2:
-                napp  = st.number_input("Appear. Bonus (€)", 0, 500_000, cur["apps_bonus"], 1000, key="na1")
-                ngoal = st.number_input("Goal Bonus (€)", 0, 500_000, cur["goals_bonus"], 1000, key="ng1")
+                napp  = st.number_input("出場ボーナス (€)", 0, 500_000, cur["apps_bonus"], 1000, key="na1")
+                ngoal = st.number_input("得点ボーナス (€)", 0, 500_000, cur["goals_bonus"], 1000, key="ng1")
             with e3:
-                nyears= st.slider("Extend (years)", 1, 5, 2, key="ny1")
-                ncl   = st.number_input("Release Clause (€)", 0, 500_000_000, cur["release_clause"], 100000, key="nc1")
-            if st.button("Negotiate Extension"):
+                nyears= st.slider("延長年数", 1, 5, 2, key="ny1")
+                ncl   = st.number_input("放出条項 (€)", 0, 500_000_000, cur["release_clause"], 100000, key="nc1")
+            if st.button("交渉する"):
                 off = {"wage":int(nwage), "signing":int(nsign), "apps_bonus":int(napp), "goals_bonus":int(ngoal),
                        "length_weeks": cur["length_weeks"] + int(nyears*52), "release_clause":int(ncl)}
                 vd = evaluate_contract_offer(int(pidx), off, 1)
                 if vd["decision"]=="accept":
-                    finalize_contract_on_join(int(pidx), off); st.success("Extension signed.")
+                    finalize_contract_on_join(int(pidx), off); st.success("延長合意しました。")
                 elif vd["decision"]=="counter":
-                    st.info(f"Counter suggested: {vd['counter']}")
+                    st.info(f"代理人カウンター: {vd['counter']}")
                 else:
-                    st.warning("Agent declined.")
+                    st.warning("拒否されました。")
 
 # ------------- Finance -------------
 with tab_fin:
-    st.header("💶 Finance")
+    st.header("💶 " + t("FinanceHdr"))
     ensure_sponsor_state()
     act = pd.DataFrame(D["sponsors_active"]) if D["sponsors_active"] else pd.DataFrame(columns=["brand","tier","weekly","bonus_top","bonus_win","seasons_left"])
-    st.subheader("🤝 Sponsors — Active Contracts")
+    st.subheader("🤝 " + t("SponsorsActive"))
     st.dataframe(act)
 
-    st.subheader("📝 Sponsor Offers (Available)")
+    st.subheader("📝 " + t("SponsorOffers"))
     av = pd.DataFrame(D["sponsors_available"]) if D["sponsors_available"] else pd.DataFrame(columns=["id","brand","tier","weekly","bonus_top","bonus_win","seasons"])
     st.dataframe(av.set_index("id") if not av.empty else av)
     if D["sponsors_available"]:
         c1,c2 = st.columns(2)
         with c1:
-            sid = st.number_input("Offer ID to sign", min_value=int(min(x["id"] for x in D["sponsors_available"])),
+            sid = st.number_input("契約するオファーID", min_value=int(min(x["id"] for x in D["sponsors_available"])),
                                   max_value=int(max(x["id"] for x in D["sponsors_available"])),
                                   value=int(min(x["id"] for x in D["sponsors_available"])))
-            if st.button("✅ Sign Sponsor"):
+            if st.button("✅ " + t("SignSponsor")):
                 r = accept_sponsor(int(sid))
-                st.success("Signed.") if r=="ok" else st.error(r)
+                st.success("契約しました。") if r=="ok" else st.error(r)
         with c2:
-            if st.button("♻️ Refresh Offers"):
-                generate_sponsor_offers(); st.info("New offers generated.")
+            if st.button("♻️ " + t("RefreshOffers")):
+                generate_sponsor_offers(); st.info("更新しました。")
 
-    st.subheader("💳 Budget & Ledger")
-    st.metric("Budget", f"€{D['budget']:,}")
+    st.subheader("💳 " + t("BudgetLedger"))
+    st.metric("予算", f"€{D['budget']:,}")
     st.dataframe(pd.DataFrame(D["finance_log"]))
 
-    # Payroll quick view
     you_ids = D["players"][D["players"]["Club"]==D["club_name"]]["ID"].astype(int).tolist()
     payroll_now = sum(D["contracts"].get(int(pid),{}).get("wage",0) for pid in you_ids)
-    st.metric("Weekly Payroll (players)", f"€{payroll_now:,}")
+    st.metric("週次給与（選手）", f"€{payroll_now:,}")
 
 # ------------- Settings -------------
 with tab_set:
-    st.header("⚙️ Settings")
+    st.header("⚙️ " + t("SettingsHdr"))
     st.write(f"Season {D['season']} / Week {D['week']}")
-    st.subheader("🎫 Ticket Price (Home)")
+    st.subheader("🎫 " + t("TicketPrice"))
     ensure_ticket_price()
-    tp = st.slider("Set price per ticket (€)", 10, 80, int(D["ticket_price"]))
-    if st.button("Save Ticket Price"):
+    tp = st.slider("価格 (€)", 10, 80, int(D["ticket_price"]))
+    if st.button("保存（チケット）"):
         D["ticket_price"] = int(tp)
-        st.success("Ticket price updated.")
+        st.success("更新しました。")
 
 # ------------- Weekly Tick -------------
 with tab_week:
-    st.header("⏭ Weekly Progress & League")
+    st.header("⏭ " + t("WeeklyHdr"))
     col = st.columns(2)
     with col[0]:
-        st.write(f"Season {D['season']} / Week {D['week']} — Window: {'🟢 OPEN' if is_window_open() else '🔴 CLOSED'}")
-        if st.button("▶️ Next Week"):
-            play_week(); st.success("Advanced one week.")
+        st.write(f"Season {D['season']} / Week {D['week']} — ウィンドウ: {'🟢 OPEN' if is_window_open() else '🔴 CLOSED'}")
+        if st.button("▶️ " + t("NextWeek")):
+            play_week(); st.success("1週進みました。")
     with col[1]:
-        if st.button("Simulate CPU resale now"):
-            simulate_cpu_resale(prob_per_week=1.0, max_deals=1); st.success("Simulated CPU resale.")
+        if st.button("CPU転売を即時シミュレート"):
+            simulate_cpu_resale(prob_per_week=1.0, max_deals=1); st.success("実行しました。")
 
     st.markdown("---")
-    st.subheader("📅 This Week's Fixtures")
+    st.subheader("📅 " + t("FixturesThisWeek"))
     wk = D["week"]
     fwk = [m for m in D.get("fixtures", []) if m["week"] == wk]
     if fwk:
         df_f = pd.DataFrame(fwk)[["div","home","away"]].rename(columns={"div":"Div","home":"Home","away":"Away"})
         st.table(df_f)
     else:
-        st.write("No fixtures this week (off-season).")
+        st.write("今週は試合がありません。")
 
-    st.subheader("📝 Last Results")
+    st.subheader("📝 " + t("LastResults"))
     last = D["results_by_week"].get(wk-1, [])
     if last:
         for line in last: st.write(line)
     else:
-        st.write("No results yet.")
+        st.write("まだ結果はありません。")
 
     st.markdown("---")
     c1,c2 = st.columns(2)
     with c1:
-        st.subheader("🏆 Standings D1")
+        st.subheader("🏆 " + t("StandingsD1"))
         st.dataframe(D["standings"]["D1"].sort_values(["Pts","GD","GF"], ascending=[False,False,False]))
     with c2:
-        st.subheader("🏆 Standings D2")
+        st.subheader("🏆 " + t("StandingsD2"))
         st.dataframe(D["standings"]["D2"].sort_values(["Pts","GD","GF"], ascending=[False,False,False]))
 
     st.markdown("---")
-    st.subheader("🌍 Continental Cup — Groups / Semi-finals (2 legs) / Final")
+    st.subheader("🌍 " + t("ContinentalHdr"))
     cc = D.get("cc")
     if cc:
         today = [f for f in cc["fixtures"] if f["week"]==D["week"]]
         if today:
             df_t = pd.DataFrame(today)[["round","group","slot","leg","home","away"]]
-            st.caption("This week fixtures (Continental):")
+            st.caption("今週の大陸大会：")
             st.table(df_t)
         lastc = [r for r in cc["results"] if r["week"]==D["week"]-1]
         if lastc:
@@ -1791,7 +1844,7 @@ with tab_week:
             cols = ["round","group","slot","leg","home","gh","ga","away","winner"]
             if "agg_h" in df_l.columns and "agg_a" in df_l.columns:
                 cols += ["agg_h","agg_a"]
-            st.caption("Last CC Results:")
+            st.caption("前週の大陸大会結果：")
             st.table(df_l[cols])
         if cc["state"] in ("GROUP","KO"):
             c1,c2 = st.columns(2)
@@ -1804,15 +1857,15 @@ with tab_week:
 
 # ------------- News -------------
 with tab_news:
-    st.header("📰 News & Rumors")
+    st.header("📰 " + t("NewsHdr"))
     if not D["news"]:
-        st.write("No news yet.")
+        st.write("ニュースはありません。")
     else:
         for i, n in enumerate(sorted(D["news"], key=lambda x:x["week"], reverse=True)[:30]):
             st.markdown(f"**W{n['week']} — {n.get('title','News')}**")
             st.write(n.get("body",""))
             if n.get("type")=="match_right":
                 pid = int(n["player_id"]); price = int(n["price"]); frm = n["from_club"]
-                if st.button(f"Match €{price:,} for PID {pid}", key=f"act_mr_{i}"):
+                if st.button(f"€{price:,} でマッチング（PID {pid}）", key=f"act_mr_{i}"):
                     r = exercise_matching_right(pid, price, frm)
-                    st.success("Matched & signed!") if r=="ok" else st.error(r)
+                    st.success("マッチングして獲得！") if r=="ok" else st.error(r)
